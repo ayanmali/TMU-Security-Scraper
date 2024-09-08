@@ -124,6 +124,8 @@ def scrape_archived_incidents():
 def get_details(df):
     # Getting the 'page' columns
     pages = df['page']
+    incident_details = []
+    description_details = []
     # Navigating to each individual incident's details page
     for page in pages:
         # Getting the part of each row in 'page' that contains the directory that points to the incident's details page
@@ -141,9 +143,11 @@ def get_details(df):
         # Creating the soup object to extract data from the HTML
         soup = BeautifulSoup(html, 'html.parser')
 
-        incident_details = get_incident_details(soup)
+        incident_details.append(get_incident_details(soup))
 
-        description_details = get_description_details(soup)
+        description_details.append(get_description_details(soup))
+
+        return incident_details, description_details
 
 def get_incident_details(soup):
     # Find the div with class "incidentdetails"
@@ -205,7 +209,8 @@ def main():
     # Exporting the DataFrame as a .csv file
     df.to_csv(f"TMU-Security-Incidents-{START_YEAR}-{CURRENT_YEAR}.csv")
 
-    get_details(df)
+    # Adding two extra columns for incident and description details
+    df["Incident Details"], df["Description Details"] = get_details(df)
 
 if __name__ == "__main__":
     main()
