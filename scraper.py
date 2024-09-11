@@ -10,6 +10,7 @@ from proxies import proxies
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
 START_YEAR = 2020
 CURRENT_YEAR = datetime.now().year
+MONTHS = ["Jan", "Feb", "March", "Apr", "May", "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"]
 
 # List to store all JSON response data
 all_data = []
@@ -77,12 +78,14 @@ def scrape_archived_incidents():
     # Defining request headers
     headers = {
         "accept": "application/json, text/javascript, */*; q=0.01",
+        "accept-encoding": "gzip, deflate, br, zstd",
         "accept-language": "en-US,en;q=0.7",
         "cache-control": "no-cache",
         # "cookie": "cswebPSJSESSIONID=ZHoRIFOXqODUru79GBo4fvU0rWwB0tDY\u0021-736116267; PS_TokenSite=https://sis.torontomu.ca/psp/csprd/?cswebPSJSESSIONID; SignOnDefault=; lcsrftoken=RQDgSSv/PAc4oTtULg3iQef9+KObdwCncADvQXISYEs=",
         "pragma": "no-cache",
         "priority": "u=1, i",
-        "referer": "https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents/2023/01/",
+        # This header gets updated for each year and month being checked
+        "referer": "",
         "sec-ch-ua": "\"Not)A;Brand\";v=\"99\", \"Brave\";v=\"127\", \"Chromium\";v=\"127\"",
         "sec-ch-ua-mobile": "?0",
         "sec-ch-ua-platform": "\"Windows\"",
@@ -95,33 +98,34 @@ def scrape_archived_incidents():
     }
     
     # Getting data for each month from 2020-2023
-    for year in range(START_YEAR, CURRENT_YEAR):
-        for month in range(1, 12):
-            print(f"Getting incidents for {month} {year}...")
+    for year in range(START_YEAR+1, START_YEAR+2):
+        for month in range(1, 13):
+            print(f"Getting incidents for {MONTHS[month-1]} {year}...")
             # Formatting the month string
             if month < 10:
-                month = "0" + str(month)
+                str_month = "0" + str(month)
             else:
-                month = str(month)
+                str_month = str(month)
 
             # Adjusting the referer header URL for the year and month
-            headers['referer'] = f"https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents/{year}/{month}/"
+            headers['referer'] = f"https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents/{year}/{str_month}/"
 
             p = 1
             while True:
                 print(f"Scraping page {p}...")
                 # Adjusting the request URL based on the year and month
-                url = f"https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents/{year}/{month}/jcr:content/content/restwocoltwoone/c1/ressecuritystack.data.1.json"
+                # url = f"https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents/{year}/{str_month}/jcr:content/content/restwocoltwoone/c1/ressecuritystack.data.{p}.json"
+                url = f"https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents/{year}/{str_month}/jcr:content/content/restwocoltwoone_copy/c1/ressecuritystack.data.{p}.json"
                 # Getting the response and storing it
                 response = requests.request("GET", url, proxies=proxies, verify=False, data=payload, headers=headers)
                 if response.status_code == 200:
-                    # Parsing the JSON response and making sure there is at least one incident for the given month and year
-                    if response.json().get('totalMatches', 0) > 0 and response.json().get('data') != []:
-                        print(f"Storing data from page {p}...")
-                        all_data.extend(response.json())
-                    else:
-                        print(f"No incidents for {month} {year} for page {p}")
+                    # Parsing the JSON response and checking to see if there are no valid results, in which case the program proceeds to the next month. Otherwise store the data and check the next page of results
+                    if response.json().get('totalMatches') <= 0 or response.json().get('data') == []:
+                        print(f"No incidents for {MONTHS[month-1]} {year} for page {p}")
                         break
+                    else:
+                        print(f"Storing data from page {p}...")
+                        all_data.extend(response.json()['data'])
                 else:
                     print(f"Failed to retrieve data from {url}: Status code {response.status_code}")
                     break
@@ -208,18 +212,18 @@ def get_html_content(url):
 
 def main():
     # Getting and storing incident data
-    scrape_recent_incidents()
-    # scrape_archived_incidents()
+    #scrape_recent_incidents()
+    scrape_archived_incidents()
 
     # Creating a DataFrame to store the data
     df = pd.DataFrame(all_data)
-    print(f"DataFrame for incidents in {CURRENT_YEAR}")
+    print(f"DataFrame for incidents from {START_YEAR+1}")
     print(df)
     print(f"Total rows: {len(df)}")
 
     # Exporting the DataFrame as a .csv file
     #df.to_csv(f"TMU-Security-Incidents-{START_YEAR}-{CURRENT_YEAR}.csv")
-    df.to_csv(f"TMU-Security-Incidents-{CURRENT_YEAR}.csv")
+    df.to_csv(f"TMU-Security-Incidents-{START_YEAR+1}.csv")
 
     # Adding two extra columns for incident and description details
     # df["Incident Details"], df["Description Details"] = get_details(df)
