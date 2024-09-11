@@ -1,4 +1,6 @@
 import requests
+# import psycopg2
+# from postgres_credentials import password
 from bs4 import BeautifulSoup
 import time
 from datetime import datetime
@@ -11,14 +13,12 @@ USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTM
 START_YEAR = 2020
 CURRENT_YEAR = datetime.now().year
 MONTHS = ["Jan", "Feb", "March", "Apr", "May", "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"]
-
-# List to store all JSON response data
-all_data = []
+# DBNAME = "TMU Security Data"
 
 """
 Scrapes security incidents that have occured in the current year.
 """
-def scrape_recent_incidents():
+def scrape_recent_incidents(all_data):
     payload = ""
 
     headers = {
@@ -68,11 +68,13 @@ def scrape_recent_incidents():
         
         # Pausing to space out requests and avoid hitting limits
         time.sleep(10)
+    
+    return all_data
 
 """
 Scrapes archived security incidents from previous years.
 """
-def scrape_archived_incidents():
+def scrape_archived_incidents(all_data):
     payload = ""
 
     # Defining request headers
@@ -98,7 +100,7 @@ def scrape_archived_incidents():
     }
     
     # Getting data for each month from 2020-2023
-    for year in range(START_YEAR+1, START_YEAR+2):
+    for year in range(CURRENT_YEAR, CURRENT_YEAR+1):
         for month in range(1, 13):
             print(f"Getting incidents for {MONTHS[month-1]} {year}...")
             # Formatting the month string
@@ -135,13 +137,16 @@ def scrape_archived_incidents():
                 # Pausing to space out requests and avoid hitting limits
                 time.sleep(10)
 
+    return all_data
+
 def get_details(df):
     # Getting the 'page' columns
     pages = df['page']
     incident_details = []
     description_details = []
+
     # Navigating to each individual incident's details page
-    for page in pages:
+    for idx, page in pages.items():
         # Getting the part of each row in 'page' that contains the directory that points to the incident's details page
         directory = page.split("list-of-security-incidents")[1]
         # Getting the URL of the incident details page
@@ -150,7 +155,7 @@ def get_details(df):
         # Getting the HTML content of the page
         html = get_html_content(url)
         if html:
-            print("HTML content retrieved successfully.")
+            print(f"HTML content for page {idx} retrieved successfully.")
         else:
             print("Failed to retrieve HTML content.")
 
@@ -161,7 +166,7 @@ def get_details(df):
 
         description_details.append(get_description_details(soup))
 
-        return incident_details, description_details
+    return incident_details, description_details
 
 def get_incident_details(soup):
     # Find the div with class "incidentdetails"
@@ -187,18 +192,18 @@ def get_description_details(soup):
         paragraphs = description_div.find_all('p')
 
         if paragraphs:
-            # Get a list containing each paragraph of the description
-            return [p.text.strip() for p in paragraphs]
+            # Get a string containing each paragraph of the description
+            return " ".join([p.text.strip() for p in paragraphs])
         else:
-            return["No paragraphs found within the description div."]
+            return "No paragraphs found within the description div."
 
     else:
-        return ["Description div not found."]
+        return "Description div not found."
 
 def get_html_content(url):
     try:
         # Send a GET request to the URL
-        response = requests.get(url)
+        response = requests.get(url, proxies=proxies, verify=False)
         
         # Raise an exception for bad status codes
         response.raise_for_status()
@@ -211,22 +216,33 @@ def get_html_content(url):
         return None
 
 def main():
+    # conn = psycopg2.connect(host="localhost", dbname=DBNAME, user="postgres", password=password)
+    # cur = conn.cursor()
+
+    # List to store all JSON response data
+    all_data = []
+
     # Getting and storing incident data
-    #scrape_recent_incidents()
-    scrape_archived_incidents()
+    all_data = scrape_recent_incidents(all_data)
+    # all_data = scrape_archived_incidents(all_data)
 
     # Creating a DataFrame to store the data
     df = pd.DataFrame(all_data)
-    print(f"DataFrame for incidents from {START_YEAR+1}")
+    print(f"DataFrame for incidents from {CURRENT_YEAR}")
     print(df)
     print(f"Total rows: {len(df)}")
 
+    # Adding two extra columns for incident and description details
+    df["Incident Details"], df["Description Details"] = get_details(df)
+    print(f"Final DataFrame for incidents from {CURRENT_YEAR} (including incident and description details)")
+    print(df)
+
     # Exporting the DataFrame as a .csv file
     #df.to_csv(f"TMU-Security-Incidents-{START_YEAR}-{CURRENT_YEAR}.csv")
-    df.to_csv(f"TMU-Security-Incidents-{START_YEAR+1}.csv")
+    df.to_csv(f"TMU-Security-Incidents-{START_YEAR}.csv")
 
-    # Adding two extra columns for incident and description details
-    # df["Incident Details"], df["Description Details"] = get_details(df)
+    # cur.close()
+    # conn.close()
 
 if __name__ == "__main__":
     main()
