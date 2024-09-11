@@ -3,6 +3,9 @@ from bs4 import BeautifulSoup
 import time
 from datetime import datetime
 import pandas as pd
+import sys
+sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers')
+from proxies import proxies
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
 START_YEAR = 2020
@@ -36,19 +39,23 @@ def scrape_recent_incidents():
         "x-requested-with": "XMLHttpRequest"
     }
 
+    print(f"Getting incidents for {CURRENT_YEAR}...")
     # Checking each page of results for data until there's no more left
     p = 1
     while True:
+        print(f"Scraping page {p}...")
         #page = 1
         url = f"https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents/jcr:content/content/restwocoltwoone/c1/ressecuritystack.data.{p}.json"
 
         # Getting the response and storing it
-        response = requests.request("GET", url, data=payload, headers=headers)
+        response = requests.request("GET", url, proxies=proxies, verify=False, data=payload, headers=headers)
         if response.status_code == 200:
             if response.json().get('data') != []:
                 print(f"Storing data from page {p}...")
-                all_data.extend(response.json())
+                # Storing the data associated with the 'data' key of the response object
+                all_data.extend(response.json()['data'])
             else:
+                # No more pages left to scrape
                 print(f"Endpoint for page {p} contains no data")
                 break
         else:
@@ -90,6 +97,7 @@ def scrape_archived_incidents():
     # Getting data for each month from 2020-2023
     for year in range(START_YEAR, CURRENT_YEAR):
         for month in range(1, 12):
+            print(f"Getting incidents for {month} {year}...")
             # Formatting the month string
             if month < 10:
                 month = "0" + str(month)
@@ -101,13 +109,15 @@ def scrape_archived_incidents():
 
             p = 1
             while True:
+                print(f"Scraping page {p}...")
                 # Adjusting the request URL based on the year and month
                 url = f"https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents/{year}/{month}/jcr:content/content/restwocoltwoone/c1/ressecuritystack.data.1.json"
                 # Getting the response and storing it
-                response = requests.request("GET", url, data=payload, headers=headers)
+                response = requests.request("GET", url, proxies=proxies, verify=False, data=payload, headers=headers)
                 if response.status_code == 200:
                     # Parsing the JSON response and making sure there is at least one incident for the given month and year
                     if response.json().get('totalMatches', 0) > 0 and response.json().get('data') != []:
+                        print(f"Storing data from page {p}...")
                         all_data.extend(response.json())
                     else:
                         print(f"No incidents for {month} {year} for page {p}")
@@ -199,18 +209,20 @@ def get_html_content(url):
 def main():
     # Getting and storing incident data
     scrape_recent_incidents()
-    scrape_archived_incidents()
+    # scrape_archived_incidents()
 
     # Creating a DataFrame to store the data
     df = pd.DataFrame(all_data)
+    print(f"DataFrame for incidents in {CURRENT_YEAR}")
     print(df)
     print(f"Total rows: {len(df)}")
 
     # Exporting the DataFrame as a .csv file
-    df.to_csv(f"TMU-Security-Incidents-{START_YEAR}-{CURRENT_YEAR}.csv")
+    #df.to_csv(f"TMU-Security-Incidents-{START_YEAR}-{CURRENT_YEAR}.csv")
+    df.to_csv(f"TMU-Security-Incidents-{CURRENT_YEAR}.csv")
 
     # Adding two extra columns for incident and description details
-    df["Incident Details"], df["Description Details"] = get_details(df)
+    # df["Incident Details"], df["Description Details"] = get_details(df)
 
 if __name__ == "__main__":
     main()
