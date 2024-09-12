@@ -1,24 +1,37 @@
+# For HTTP requests
 import requests
-# import psycopg2
-# from postgres_credentials import password
-from bs4 import BeautifulSoup
-import time
-from datetime import datetime
-import pandas as pd
+
+# Proxy to mask IP address when making requests
 import sys
 sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers')
 from proxies import proxies
+
+# For integrating the database
+import psycopg2
+from psycopg2 import sql
+from postgres_params import db_params
+
+# For parsing HTML from the incident details page
+from bs4 import BeautifulSoup
+
+# For pausing in between requests to avoid rate limits
+import time
+
+# For formatting dates
+from datetime import datetime
+
+# For storing and manipulating data
+# import pandas as pd
 
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
 START_YEAR = 2020
 CURRENT_YEAR = datetime.now().year
 MONTHS = ["Jan", "Feb", "March", "Apr", "May", "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"]
-# DBNAME = "TMU Security Data"
 
 """
-Scrapes security incidents that have occured in the current year.
+Scrapes security incidents that have occured in the current year to date.
 """
-def scrape_recent_incidents(all_data):
+def scrape_recent_incidents(cur, conn):
     payload = ""
 
     headers = {
@@ -41,6 +54,7 @@ def scrape_recent_incidents(all_data):
     }
 
     print(f"Getting incidents for {CURRENT_YEAR}...")
+
     # Checking each page of results for data until there's no more left
     p = 1
     while True:
@@ -54,7 +68,9 @@ def scrape_recent_incidents(all_data):
             if response.json().get('data') != []:
                 print(f"Storing data from page {p}...")
                 # Storing the data associated with the 'data' key of the response object
-                all_data.extend(response.json()['data'])
+                # all_data.extend(response.json()['data'])
+                # Inserting the response data into the table
+                insert_data(cur, conn, response.json()['data'])
             else:
                 # No more pages left to scrape
                 print(f"Endpoint for page {p} contains no data")
@@ -69,12 +85,12 @@ def scrape_recent_incidents(all_data):
         # Pausing to space out requests and avoid hitting limits
         time.sleep(10)
     
-    return all_data
+    # return all_data
 
 """
 Scrapes archived security incidents from previous years.
 """
-def scrape_archived_incidents(all_data):
+def scrape_archived_incidents(cur, conn):
     payload = ""
 
     # Defining request headers
@@ -127,7 +143,9 @@ def scrape_archived_incidents(all_data):
                         break
                     else:
                         print(f"Storing data from page {p}...")
-                        all_data.extend(response.json()['data'])
+                        # all_data.extend(response.json()['data'])
+                        # Inserting response data into the table
+                        insert_data(cur, conn, response.json()['data'])
                 else:
                     print(f"Failed to retrieve data from {url}: Status code {response.status_code}")
                     break
@@ -137,36 +155,90 @@ def scrape_archived_incidents(all_data):
                 # Pausing to space out requests and avoid hitting limits
                 time.sleep(10)
 
-    return all_data
+    # return all_data
 
-def get_details(df):
-    # Getting the 'page' columns
-    pages = df['page']
-    incident_details = []
-    description_details = []
+def insert_data(cur, conn, data):
+    # Prepares the first part of the query that declares the columns for which values are being added
+    insert_query = sql.SQL("""
+    INSERT INTO Incidents (page, incidentType, datePosted, dateReported, dateOfIncident, location, otherIncidentType, incidentDetails, description)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+    """)
 
-    # Navigating to each individual incident's details page
-    for idx, page in pages.items():
-        # Getting the part of each row in 'page' that contains the directory that points to the incident's details page
-        directory = page.split("list-of-security-incidents")[1]
-        # Getting the URL of the incident details page
-        url = f"https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents{directory}/"
-
-        # Getting the HTML content of the page
-        html = get_html_content(url)
-        if html:
-            print(f"HTML content for page {idx} retrieved successfully.")
+    # Adding the data from each incident returned in the response
+    for item in data:
+        # Adding other incident type if it was present in the response, N/A otherwise   
+        if "otherIncidentType" in item.keys():
+            otherIncidentTypeValue = item['otherIncidentType']
         else:
-            print("Failed to retrieve HTML content.")
+            otherIncidentTypeValue = "N/A"
 
-        # Creating the soup object to extract data from the HTML
-        soup = BeautifulSoup(html, 'html.parser')
+        # Getting incident and description information
+        incident_details, description = get_details(data['page'])
 
-        incident_details.append(get_incident_details(soup))
+        # Executing the query and passing in the values to add to the table
+        cur.execute(insert_query, (
+            item['page'],
+            item['incidentType'],
+            item['date'],
+            item['dateReported'],
+            item['dateOfIncident'],
+            item['location'],
+            otherIncidentTypeValue,
+            incident_details,
+            description
+        ))
+    
+    # Committing changes
+    conn.commit()
 
-        description_details.append(get_description_details(soup))
+"""
+Scrapes incident details and the description for each security incident.
+"""
+def get_details(page):
+    # Getting the part of each row in 'page' that contains the directory that points to the incident's details page
+    directory = page.split("list-of-security-incidents")[1]
+    # Getting the URL of the incident details page
+    url = f"https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents{directory}/"
 
-    return incident_details, description_details
+    # Getting the HTML content of the page
+    html = get_html_content(url)
+    if html:
+        print(f"HTML content for {page} retrieved successfully.")
+    else:
+        print("Failed to retrieve HTML content.")
+
+    # Creating the soup object to extract data from the HTML
+    soup = BeautifulSoup(html, 'html.parser')
+    return get_incident_details(soup), get_description_details(soup)
+
+# def get_details(df):
+#     # Getting the 'page' columns
+#     pages = df['page']
+#     incident_details = []
+#     description_details = []
+
+#     # Navigating to each individual incident's details page
+#     for idx, page in pages.items():
+#         # Getting the part of each row in 'page' that contains the directory that points to the incident's details page
+#         directory = page.split("list-of-security-incidents")[1]
+#         # Getting the URL of the incident details page
+#         url = f"https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents{directory}/"
+
+#         # Getting the HTML content of the page
+#         html = get_html_content(url)
+#         if html:
+#             print(f"HTML content for page {idx} retrieved successfully.")
+#         else:
+#             print("Failed to retrieve HTML content.")
+
+#         # Creating the soup object to extract data from the HTML
+#         soup = BeautifulSoup(html, 'html.parser')
+
+#         incident_details.append(get_incident_details(soup))
+
+#         description_details.append(get_description_details(soup))
+
+#     return incident_details, description_details
 
 def get_incident_details(soup):
     # Find the div with class "incidentdetails"
@@ -216,33 +288,33 @@ def get_html_content(url):
         return None
 
 def main():
-    # conn = psycopg2.connect(host="localhost", dbname=DBNAME, user="postgres", password=password)
-    # cur = conn.cursor()
+    conn = psycopg2.connect(**db_params)
+    cur = conn.cursor()
 
     # List to store all JSON response data
-    all_data = []
+    # all_data = []
 
     # Getting and storing incident data
-    all_data = scrape_recent_incidents(all_data)
-    # all_data = scrape_archived_incidents(all_data)
+    scrape_recent_incidents(cur, conn)
+    scrape_archived_incidents(cur, conn)
 
     # Creating a DataFrame to store the data
-    df = pd.DataFrame(all_data)
-    print(f"DataFrame for incidents from {CURRENT_YEAR}")
-    print(df)
-    print(f"Total rows: {len(df)}")
+    # df = pd.DataFrame(all_data)
+    # print(f"DataFrame for incidents from {CURRENT_YEAR}")
+    # print(df)
+    # print(f"Total rows: {len(df)}")
 
     # Adding two extra columns for incident and description details
-    df["Incident Details"], df["Description Details"] = get_details(df)
-    print(f"Final DataFrame for incidents from {CURRENT_YEAR} (including incident and description details)")
-    print(df)
+    # df["Incident Details"], df["Description Details"] = get_details(df)
+    # print(f"Final DataFrame for incidents from {CURRENT_YEAR} (including incident and description details)")
+    # print(df)
 
     # Exporting the DataFrame as a .csv file
     #df.to_csv(f"TMU-Security-Incidents-{START_YEAR}-{CURRENT_YEAR}.csv")
-    df.to_csv(f"TMU-Security-Incidents-{START_YEAR}.csv")
+    # df.to_csv(f"TMU-Security-Incidents-{CURRENT_YEAR}.csv")
 
-    # cur.close()
-    # conn.close()
+    cur.close()
+    conn.close()
 
 if __name__ == "__main__":
     main()
