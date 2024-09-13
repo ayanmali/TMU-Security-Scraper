@@ -33,6 +33,7 @@ CURRENT_YEAR = datetime.now().year
 MONTHS = ["Jan", "Feb", "March", "Apr", "May", "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"]
 
 def create_table_if_not_exists(cur, conn):
+    # Note: make sure that 'page' is a unique column, and make sure client_encoding is the same as server_encoding
     create_table_query = sql.SQL("""
     CREATE TABLE IF NOT EXISTS Incidents (
         page TEXT,
@@ -50,6 +51,22 @@ def create_table_if_not_exists(cur, conn):
     cur.execute(create_table_query)
     conn.commit()
     print("Table 'Incidents' created or already exists.")
+
+def process_response(cur, conn, response, previous_response_data, month, year, p):
+    # If the response is valid
+    if response.status_code == 200:
+        data = response.json().get('data', [])
+        # If the next page contains no new data
+        if response.json().get('totalMatches', 0) <= 0 or not data or data == previous_response_data:
+            print(f"No incidents for {MONTHS[month-1]} {year} for page {p}")
+            return False
+        # The next page does contain new data, which is stored in the database
+        else:
+            print(f"Storing data from page {p}...")
+            insert_data(cur, conn, data)
+            return True
+    # Response is not valid
+    return None
 
 """
 Scrapes security incidents that have occured in the current year to date.
@@ -153,34 +170,40 @@ def scrape_archived_incidents(cur, conn):
             headers['referer'] = f"https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents/{year}/{str_month}/"
 
             p = 1
+            previous_response_data = None
             while True:
                 print(f"Scraping page {p}...")
-                # Adjusting the request URL based on the year and month
-                # url = f"https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents/{year}/{str_month}/jcr:content/content/restwocoltwoone/c1/ressecuritystack.data.{p}.json"
-                url = f"https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents/{year}/{str_month}/jcr:content/content/restwocoltwoone_copy/c1/ressecuritystack.data.{p}.json"
-                # Getting the response and storing it
-                response = requests.request("GET", url, proxies=proxies, verify=False, data=payload, headers=headers)
-                if response.status_code == 200:
-                    # Parsing the JSON response and checking to see if there are no valid results, in which case the program proceeds to the next month. Otherwise store the data and check the next page of results
-                    if response.json().get('totalMatches') <= 0 or response.json().get('data') == []:
-                        print(f"No incidents for {MONTHS[month-1]} {year} for page {p}")
+                # Trying two URLs, since some months use one endpoint and some use the other
+                main_url = f"https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents/{year}/{str_month}/jcr:content/content/restwocoltwoone/c1/ressecuritystack.data.{p}.json"
+                alt_url = f"https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents/{year}/{str_month}/jcr:content/content/restwocoltwoone_copy/c1/ressecuritystack.data.{p}.json"
+                
+                for url in [main_url, alt_url]:
+                    # Getting the response and storing it
+                    response = requests.request("GET", url, proxies=proxies, verify=False, data=payload, headers=headers)
+                    # Evaluating whether the response for the current month, year, and page contains new data, no new data, or is invalid
+                    result = process_response(cur, conn, response, previous_response_data, month, year, p)
+                    # If the response was valid and went through properly, then there's no need to check the other URL
+                    if result is not None:
                         break
-                    else:
-                        print(f"Storing data from page {p}...")
-                        # all_data.extend(response.json()['data'])
-                        # Inserting response data into the table
-                        insert_data(cur, conn, response.json()['data'])
-                else:
-                    print(f"Failed to retrieve data from {url}: Status code {response.status_code}")
+                
+                # If one of the request URLs went through successfully and there is no new data left to parse, then move on to the next month
+                if result is False:
+                    # No more incidents for this month
+                    break
+                elif result is None:
+                    # Exit the function if both URLs fail
+                    print(f"Couldn't retrieve data from either URL for {MONTHS[month-1]} {year}, page {p}")
                     return
                 
-                # Incrementing the counter to check the next page
+                # Updating the previous response data
+                previous_response_data = response.json()['data']
+
                 p += 1
-                # Pausing to space out requests and avoid hitting limits
+
+                # Spacing out requests to avoid hitting rate limits
                 time.sleep(10)
 
     print(f"Completed scraping archived incidents from {START_YEAR} to {CURRENT_YEAR-1}")
-    # return all_data
 
 def insert_data(cur, conn, data):
     # Prepares the first part of the query that declares the columns for which values are being added
@@ -239,39 +262,11 @@ def get_details(page):
     soup = BeautifulSoup(html, 'html.parser')
     return get_incident_details(soup), get_description_details(soup)
 
-# def get_details(df):
-#     # Getting the 'page' columns
-#     pages = df['page']
-#     incident_details = []
-#     description_details = []
-
-#     # Navigating to each individual incident's details page
-#     for idx, page in pages.items():
-#         # Getting the part of each row in 'page' that contains the directory that points to the incident's details page
-#         directory = page.split("list-of-security-incidents")[1]
-#         # Getting the URL of the incident details page
-#         url = f"https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents{directory}/"
-
-#         # Getting the HTML content of the page
-#         html = get_html_content(url)
-#         if html:
-#             print(f"HTML content for page {idx} retrieved successfully.")
-#         else:
-#             print("Failed to retrieve HTML content.")
-
-#         # Creating the soup object to extract data from the HTML
-#         soup = BeautifulSoup(html, 'html.parser')
-
-#         incident_details.append(get_incident_details(soup))
-
-#         description_details.append(get_description_details(soup))
-
-#     return incident_details, description_details
-
 def get_incident_details(soup):
     # Find the div with class "incidentdetails"
     incident_div = soup.find('div', class_='incidentdetails')
 
+    # If the div with the specified class has been found
     if incident_div:
         # Find the paragraph within this div
         paragraph = incident_div.find('p')
@@ -287,6 +282,7 @@ def get_description_details(soup):
     # Find the div with class "description"
     description_div = soup.find('div', class_='description')
 
+    # If the div with the specified class has been found
     if description_div:
         # Find the paragraphs within this div
         paragraphs = description_div.find_all('p')
@@ -322,27 +318,9 @@ def main():
     # Creating the table if it doesn't already exist
     create_table_if_not_exists(cur, conn)
 
-    # List to store all JSON response data
-    # all_data = []
-
     # Getting and storing incident data
-    #  scrape_recent_incidents(cur, conn)
+    scrape_recent_incidents(cur, conn)
     scrape_archived_incidents(cur, conn)
-
-    # Creating a DataFrame to store the data
-    # df = pd.DataFrame(all_data)
-    # print(f"DataFrame for incidents from {CURRENT_YEAR}")
-    # print(df)
-    # print(f"Total rows: {len(df)}")
-
-    # Adding two extra columns for incident and description details
-    # df["Incident Details"], df["Description Details"] = get_details(df)
-    # print(f"Final DataFrame for incidents from {CURRENT_YEAR} (including incident and description details)")
-    # print(df)
-
-    # Exporting the DataFrame as a .csv file
-    #df.to_csv(f"TMU-Security-Incidents-{START_YEAR}-{CURRENT_YEAR}.csv")
-    # df.to_csv(f"TMU-Security-Incidents-{CURRENT_YEAR}.csv")
 
     # Closing the database connection
     cur.close()
