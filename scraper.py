@@ -140,7 +140,7 @@ def scrape_archived_incidents(cur, conn):
     }
     
     # Getting data for each month from 2020-2023
-    for year in range(CURRENT_YEAR, CURRENT_YEAR+1):
+    for year in range(START_YEAR, CURRENT_YEAR):
         for month in range(1, 13):
             print(f"Getting incidents for {MONTHS[month-1]} {year}...")
             # Formatting the month string
@@ -172,20 +172,23 @@ def scrape_archived_incidents(cur, conn):
                         insert_data(cur, conn, response.json()['data'])
                 else:
                     print(f"Failed to retrieve data from {url}: Status code {response.status_code}")
-                    break
+                    return
                 
                 # Incrementing the counter to check the next page
                 p += 1
                 # Pausing to space out requests and avoid hitting limits
                 time.sleep(10)
 
+    print(f"Completed scraping archived incidents from {START_YEAR} to {CURRENT_YEAR-1}")
     # return all_data
 
 def insert_data(cur, conn, data):
     # Prepares the first part of the query that declares the columns for which values are being added
+    # ON CONFLICT portion ensures duplicates aren't being added in
     insert_query = sql.SQL("""
-    INSERT INTO Incidents (page, incidentType, datePosted, dateReported, dateOfIncident, location, otherIncidentType, incidentDetails, description)
+    INSERT INTO incidents (page, incidentType, datePosted, dateReported, dateOfIncident, location, otherIncidentType, incidentDetails, description)
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+    ON CONFLICT (page) DO NOTHING
     """)
 
     # Adding the data from each incident returned in the response
@@ -198,6 +201,7 @@ def insert_data(cur, conn, data):
 
         # Getting incident and description information
         incident_details, description = get_details(item['page'])
+        time.sleep(7)
 
         # Executing the query and passing in the values to add to the table
         cur.execute(insert_query, (
@@ -312,16 +316,18 @@ def get_html_content(url):
         return None
 
 def main():
+    # Setting up the database connection
     conn = psycopg2.connect(**db_params)
     cur = conn.cursor()
+    # Creating the table if it doesn't already exist
     create_table_if_not_exists(cur, conn)
 
     # List to store all JSON response data
     # all_data = []
 
     # Getting and storing incident data
-    scrape_recent_incidents(cur, conn)
-    # scrape_archived_incidents(cur, conn)
+    #  scrape_recent_incidents(cur, conn)
+    scrape_archived_incidents(cur, conn)
 
     # Creating a DataFrame to store the data
     # df = pd.DataFrame(all_data)
@@ -338,6 +344,7 @@ def main():
     #df.to_csv(f"TMU-Security-Incidents-{START_YEAR}-{CURRENT_YEAR}.csv")
     # df.to_csv(f"TMU-Security-Incidents-{CURRENT_YEAR}.csv")
 
+    # Closing the database connection
     cur.close()
     conn.close()
 
