@@ -23,10 +23,33 @@ from datetime import datetime
 # For storing and manipulating data
 # import pandas as pd
 
+# To disable warnings
+import urllib3
+urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
+
 USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
 START_YEAR = 2020
 CURRENT_YEAR = datetime.now().year
 MONTHS = ["Jan", "Feb", "March", "Apr", "May", "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"]
+
+def create_table_if_not_exists(cur, conn):
+    create_table_query = sql.SQL("""
+    CREATE TABLE IF NOT EXISTS Incidents (
+        page TEXT,
+        incidentType TEXT,
+        datePosted TIMESTAMP WITH TIME ZONE,
+        dateReported TIMESTAMP WITH TIME ZONE,
+        dateOfIncident TIMESTAMP WITH TIME ZONE,
+        location TEXT,
+        otherIncidentType TEXT,
+        incidentDetails TEXT,
+        description TEXT
+    )
+    """)
+    
+    cur.execute(create_table_query)
+    conn.commit()
+    print("Table 'Incidents' created or already exists.")
 
 """
 Scrapes security incidents that have occured in the current year to date.
@@ -85,6 +108,7 @@ def scrape_recent_incidents(cur, conn):
         # Pausing to space out requests and avoid hitting limits
         time.sleep(10)
     
+    print("Completed scraping recent incidents.")
     # return all_data
 
 """
@@ -166,14 +190,14 @@ def insert_data(cur, conn, data):
 
     # Adding the data from each incident returned in the response
     for item in data:
-        # Adding other incident type if it was present in the response, N/A otherwise   
+        # Adding other incident type if it was present in the response, NA otherwise   
         if "otherIncidentType" in item.keys():
             otherIncidentTypeValue = item['otherIncidentType']
         else:
-            otherIncidentTypeValue = "N/A"
+            otherIncidentTypeValue = "NA"
 
         # Getting incident and description information
-        incident_details, description = get_details(data['page'])
+        incident_details, description = get_details(item['page'])
 
         # Executing the query and passing in the values to add to the table
         cur.execute(insert_query, (
@@ -192,7 +216,7 @@ def insert_data(cur, conn, data):
     conn.commit()
 
 """
-Scrapes incident details and the description for each security incident.
+Scrapes incident details and the description for a given security incident.
 """
 def get_details(page):
     # Getting the part of each row in 'page' that contains the directory that points to the incident's details page
@@ -290,13 +314,14 @@ def get_html_content(url):
 def main():
     conn = psycopg2.connect(**db_params)
     cur = conn.cursor()
+    create_table_if_not_exists(cur, conn)
 
     # List to store all JSON response data
     # all_data = []
 
     # Getting and storing incident data
     scrape_recent_incidents(cur, conn)
-    scrape_archived_incidents(cur, conn)
+    # scrape_archived_incidents(cur, conn)
 
     # Creating a DataFrame to store the data
     # df = pd.DataFrame(all_data)
