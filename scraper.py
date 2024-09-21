@@ -36,6 +36,7 @@ def create_table_if_not_exists(cur, conn):
     # Note: make sure that 'page' is a unique column, and make sure client_encoding is the same as server_encoding
     create_table_query = sql.SQL("""
     CREATE TABLE IF NOT EXISTS Incidents (
+        id SERIAL PRIMARY KEY,
         page TEXT,
         incidentType TEXT,
         datePosted TIMESTAMP WITH TIME ZONE,
@@ -163,7 +164,7 @@ def scrape_archived_incidents(cur, conn):
     
     # Getting data for each month from 2020-2023
     for year in range(START_YEAR, CURRENT_YEAR):
-        for month in range(2, 13):
+        for month in range(1, 13):
             print(f"Getting incidents for {MONTHS[month-1]} {year}...")
             # Formatting the month string
             str_month = f"0{month}" if month < 10 else str(month)
