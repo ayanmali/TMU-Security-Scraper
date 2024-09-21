@@ -4,7 +4,7 @@ import requests
 # Proxy to mask IP address when making requests
 import sys
 sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers')
-from proxies import proxies
+# from proxies import proxies
 
 # For integrating the database
 import psycopg2
@@ -27,8 +27,8 @@ from datetime import datetime
 import urllib3
 urllib3.disable_warnings(urllib3.exceptions.InsecureRequestWarning)
 
-USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/127.0.0.0 Safari/537.36"
-START_YEAR = 2020
+USER_AGENT = "Mozilla/5.0 (Windows NT 10.0; Win64; x64) AppleWebKit/537.36 (KHTML, like Gecko) Chrome/128.0.0.0 Safari/537.36"
+START_YEAR = 2018
 CURRENT_YEAR = datetime.now().year
 MONTHS = ["Jan", "Feb", "March", "Apr", "May", "June", "July", "Aug", "Sept", "Oct", "Nov", "Dec"]
 
@@ -82,7 +82,7 @@ def scrape_recent_incidents(cur, conn):
         "pragma": "no-cache",
         "priority": "u=1, i",
         "referer": "https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents/",
-        "sec-ch-ua": "\"Not)A;Brand\";v=\"99\", \"Brave\";v=\"127\", \"Chromium\";v=\"127\"",
+        "sec-ch-ua": "\"Not)A;Brand\";v=\"99\", \"Brave\";v=\"128\", \"Chromium\";v=\"128\"",
         "sec-ch-ua-mobile": "?0",
         "sec-ch-ua-platform": "\"Windows\"",
         "sec-fetch-dest": "empty",
@@ -103,13 +103,12 @@ def scrape_recent_incidents(cur, conn):
         url = f"https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents/jcr:content/content/restwocoltwoone/c1/ressecuritystack.data.{p}.json"
 
         # Getting the response and storing it
-        response = requests.request("GET", url, proxies=proxies, verify=False, data=payload, headers=headers)
+        response = requests.request("GET", url, #proxies=proxies,
+                                    verify=False, data=payload, headers=headers)
         if response.status_code == 200:
             if response.json().get('data') != []:
                 print(f"Storing data from page {p}...")
                 # Storing the data associated with the 'data' key of the response object
-                # all_data.extend(response.json()['data'])
-                # Inserting the response data into the table
                 insert_data(cur, conn, response.json()['data'])
             else:
                 # No more pages left to scrape
@@ -126,12 +125,15 @@ def scrape_recent_incidents(cur, conn):
         time.sleep(10)
     
     print("Completed scraping recent incidents.")
-    # return all_data
 
 """
 Scrapes archived security incidents from previous years.
 """
 def scrape_archived_incidents(cur, conn):
+    # Creating the session object
+    s = requests.Session()
+    s.verify = False
+
     payload = ""
 
     # Defining request headers
@@ -145,7 +147,7 @@ def scrape_archived_incidents(cur, conn):
         "priority": "u=1, i",
         # This header gets updated for each year and month being checked
         "referer": "",
-        "sec-ch-ua": "\"Not)A;Brand\";v=\"99\", \"Brave\";v=\"127\", \"Chromium\";v=\"127\"",
+        "sec-ch-ua": "\"Not)A;Brand\";v=\"99\", \"Brave\";v=\"128\", \"Chromium\";v=\"128\"",
         "sec-ch-ua-mobile": "?0",
         "sec-ch-ua-platform": "\"Windows\"",
         "sec-fetch-dest": "empty",
@@ -155,19 +157,21 @@ def scrape_archived_incidents(cur, conn):
         "user-agent": USER_AGENT,
         "x-requested-with": "XMLHttpRequest"
     }
+
+    # Setting the session headers
+    s.headers.update(headers)
     
     # Getting data for each month from 2020-2023
     for year in range(START_YEAR, CURRENT_YEAR):
-        for month in range(1, 13):
+        for month in range(2, 13):
             print(f"Getting incidents for {MONTHS[month-1]} {year}...")
             # Formatting the month string
-            if month < 10:
-                str_month = "0" + str(month)
-            else:
-                str_month = str(month)
+            str_month = f"0{month}" if month < 10 else str(month)
 
             # Adjusting the referer header URL for the year and month
-            headers['referer'] = f"https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents/{year}/{str_month}/"
+            s.headers.update({
+                "referer": f"https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents/{year}/{str_month}/"
+            })
 
             p = 1
             previous_response_data = None
@@ -178,18 +182,34 @@ def scrape_archived_incidents(cur, conn):
                 alt_url = f"https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents/{year}/{str_month}/jcr:content/content/restwocoltwoone_copy/c1/ressecuritystack.data.{p}.json"
                 
                 for url in [main_url, alt_url]:
-                    # Getting the response and storing it
-                    response = requests.request("GET", url, proxies=proxies, verify=False, data=payload, headers=headers)
-                    # Evaluating whether the response for the current month, year, and page contains new data, no new data, or is invalid
-                    result = process_response(cur, conn, response, previous_response_data, month, year, p)
-                    # If the response was valid and went through properly, then there's no need to check the other URL
-                    if result is not None:
-                        break
-                
+                    try:
+                        # Getting the response and storing it
+                        response = s.get(url, data=payload)
+                        #response = requests.request("GET", url, #proxies=proxies, 
+                        #                            verify=False, data=payload, headers=headers)
+
+                        # Evaluating whether the response for the current month, year, and page contains new data (true), no new data (false), or is invalid (None)
+                        result = process_response(cur, conn, response, previous_response_data, month, year, p)
+                        # If the response was valid and went through properly, then there's no need to check the other URL
+                        if result is not None:
+                            break
+                    
+                    # TooManyRedirects exception is thrown when the main URL receives a request instead of the alt URL
+                    except requests.exceptions.TooManyRedirects:
+                        print(f"Too many redirects for URL: {url}")
+                        if url == main_url:
+                            print("Trying alternative URL...")
+                            continue
+                        else:
+                            print("Both URLs failed due to too many redirects.")
+                            result = None
+                            break
+
                 # If one of the request URLs went through successfully and there is no new data left to parse, then move on to the next month
                 if result is False:
                     # No more incidents for this month
                     break
+                # If both URLs fail
                 elif result is None:
                     # Exit the function if both URLs fail
                     print(f"Couldn't retrieve data from either URL for {MONTHS[month-1]} {year}, page {p}")
@@ -198,6 +218,7 @@ def scrape_archived_incidents(cur, conn):
                 # Updating the previous response data
                 previous_response_data = response.json()['data']
 
+                # Incrementing the counter to get data from the next page
                 p += 1
 
                 # Spacing out requests to avoid hitting rate limits
@@ -222,6 +243,11 @@ def insert_data(cur, conn, data):
         else:
             otherIncidentTypeValue = "NA"
 
+        if "dateReported" in item.keys():
+            dateReportedValue = item['dateReported']
+        else:
+            dateReportedValue = None
+
         # Getting incident and description information
         incident_details, description = get_details(item['page'])
         time.sleep(7)
@@ -231,7 +257,7 @@ def insert_data(cur, conn, data):
             item['page'],
             item['incidentType'],
             item['date'],
-            item['dateReported'],
+            dateReportedValue,
             item['dateOfIncident'],
             item['location'],
             otherIncidentTypeValue,
@@ -299,7 +325,8 @@ def get_description_details(soup):
 def get_html_content(url):
     try:
         # Send a GET request to the URL
-        response = requests.get(url, proxies=proxies, verify=False)
+        response = requests.get(url, #proxies=proxies, 
+                                verify=False)
         
         # Raise an exception for bad status codes
         response.raise_for_status()
