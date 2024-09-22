@@ -235,8 +235,8 @@ def insert_data(cur, conn, data, client=None):
     # Prepares the first part of the query that declares the columns for which values are being added
     # ON CONFLICT portion ensures duplicates aren't being added in
     insert_query = sql.SQL("""
-    INSERT INTO {} (page, incidentType, datePosted, dateReported, dateOfIncident, location, otherIncidentType, incidentDetails, description)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
+    INSERT INTO {} (page, incidentType, datePosted, dateReported, dateOfIncident, location, otherIncidentType, incidentDetails, description, detailsembed)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (page) DO NOTHING
     """.format(sql.Identifier(TABLE_NAME)))
 
@@ -256,6 +256,12 @@ def insert_data(cur, conn, data, client=None):
         # Getting incident and description information
         incident_details, description = get_details(item['page'])
         time.sleep(7)
+        
+        # Adding a vector embedding of the description if we're scraping new incidents from the current year
+        if client is not None:
+            embedding = get_embedding(client, incident_details)
+        else:
+            embedding = None
 
         # Executing the query and passing in the values to add to the table
         cur.execute(insert_query, (
@@ -267,18 +273,10 @@ def insert_data(cur, conn, data, client=None):
             item['location'],
             otherIncidentTypeValue,
             incident_details,
-            description
+            description,
+            embedding
         ))
 
-        if client is not None:
-            query = sql.SQL("SELECT MAX(id) FROM {}").format(sql.Identifier(TABLE_NAME))
-            cur.execute(query)
-            last_item_id = cur.fetchone()[0]
-
-            embedding = get_embedding(client, incident_details)
-            query = sql.SQL("UPDATE {} SET {} = %s WHERE id = %s".format(sql.Identifier(TABLE_NAME), sql.Identifier(EMBED_COLUMN_NAME)))
-            cur.execute(query, (embedding, last_item_id))
-    
     # Committing changes
     conn.commit()
 
