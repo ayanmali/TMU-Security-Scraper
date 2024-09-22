@@ -23,29 +23,39 @@ import numpy as np
 from numpy.linalg import norm
 
 # Defining constants
-DETAILS_EMBED_COLUMN_NAME = "detailsembed"
-COMBINED_EMBED_COLUMN_NAME = "combinedembed"
+# DETAILS_EMBED_COLUMN_NAME = "detailsembed"
+LOCDETAILS_EMBED_COLUMN_NAME = "locdetailsembed"
+LOCDESCR_EMBED_COLUMN_NAME = "locdescrembed"
 TABLE_NAME = "incidents"
 EMBED_MODEL = "text-embedding-3-small"
-DETAILS_N_DIMS = 256
-COMBINED_N_DIMS = DETAILS_N_DIMS + 128
+N_DIMS = 256 + 128
+# COMBINED_N_DIMS = N_DIMS + 128
 
 """
-- Vector embeddings
-    - Search feature
+- Search feature ✅
     - Can use: OpenAI/Voyage Embeddings API, PGVector, TypeSense for search
     1. Generate embeddings
     2. Store embeddings in DB with PGVector
     3. Query from Python script
+
+- Similar Incident Recommendation System
+    - Features such as incident type, suspect descriptions, date and time, incident details (bag of words, tf-idf), and location data (latitude, longitude, proximity to landmarks)
+    - KNN, matrix factorization
+
 - Time Series Forecasting
     - likelihood of incidents occurring during specific times or days
+    - number of incidents expected to occur in future time periods (ARIMA, Prophet, SARIMA to account for trends and seasonality)
+
 - Clustering and Anomaly Detection
     - K-Means or DBSCAN to identify patterns in incident characteristics
     - Train an autoencoder or One Class SVM to identify incidents that deviate from typical patterns
-- Incident Type Prediction (Classifier Model)
+    - Look for anomalies in incident frequencies
+
 - Location Based Risk Assessment
-    - Spatial Clustering to identify areas with high concentrations of incidents
+    - Spatial Clustering to identify areas with high concentrations of incidents/high risk areas
     - Recommendation Algorithm to suggest patrol routes/areas to focus on based on historical data
+
+- Incident Type Prediction (Classifier Model)
 - Topic Modelling Using Latent Dirichlet Allocation to find underlying themes in incident descriptions or suspect descriptions
 
 """
@@ -62,27 +72,26 @@ def add_embeddings(cur, conn, client):
 
     for row in range(1, num_rows+1):
         print(f"Adding embeddings for row {row}...")
-        # details_query = sql.SQL("""
-        # SELECT incidentdetails FROM %s WHERE id = %s
-        #     """)
 
         # Getting the location and incident details for the given row
-        query = sql.SQL("SELECT location, incidentdetails FROM {} WHERE id = %s").format(sql.Identifier(TABLE_NAME))
+        query = sql.SQL("SELECT location, incidentdetails, description FROM {} WHERE id = %s").format(sql.Identifier(TABLE_NAME))
         cur.execute(query, (row, ))
         result = cur.fetchone()
-        location_string, details_string = result[0], result[1]
+        location_string, details_string, description_string = result[0], result[1], result[2]
 
         # Creating a combined string that contains both the location and details of the incident
-        combined_string = location_string + " " + details_string
+        locdetails_string = location_string + " " + details_string
+        # Creating a combined string that contains both the location and suspect description of the incident
+        locdescr_string = location_string + " " + description_string
 
         # Getting the embedding for the incident details string for the given row
         print(f"Generating embeddings for row {row}")
-        details_embedding = get_embedding(client, details_string, combined=False)
-        combined_embedding = get_embedding(client, combined_string, combined=True)
+        locdetails_embedding = get_embedding(client, locdetails_string)
+        locdescr_embedding = get_embedding(client, locdescr_string)
 
         # Storing both embeddings in the table in their appropriate columns
-        query = sql.SQL("UPDATE {} SET {} = %s, {} = %s WHERE id = %s").format(sql.Identifier(TABLE_NAME), sql.Identifier(DETAILS_EMBED_COLUMN_NAME), sql.Identifier(COMBINED_EMBED_COLUMN_NAME))
-        cur.execute(query, (details_embedding, combined_embedding, row))
+        query = sql.SQL("UPDATE {} SET {} = %s, {} = %s WHERE id = %s").format(sql.Identifier(TABLE_NAME), sql.Identifier(LOCDETAILS_EMBED_COLUMN_NAME), sql.Identifier(LOCDESCR_EMBED_COLUMN_NAME))
+        cur.execute(query, (locdetails_embedding, locdescr_embedding, row))
 
         # Commiting changes to the DB
         conn.commit()
@@ -90,38 +99,31 @@ def add_embeddings(cur, conn, client):
 """
 Generates a vector embedding for the given string.
 """
-def get_embedding(client, input_str, combined):
+def get_embedding(client, input_str):
     # Generating the embedding based on the input string
     response = client.embeddings.create(
         input=input_str,
         model=EMBED_MODEL,
-        dimensions=COMBINED_N_DIMS if combined else DETAILS_N_DIMS
+        dimensions=N_DIMS
     )
     return response.data[0].embedding
 
 """
 Returns the top n most relevant search results based on the given query.
 """
-def get_search_results(cur, client, engine, search_query, combined=True, n=5):
+def get_search_results(cur, client, engine, search_query, vector_column, n=5):
     # Loading the data into a DataFrame
     df = pd.read_sql(f"SELECT * FROM {TABLE_NAME}", engine)
-    query_embedding = get_embedding(client, search_query, combined=combined)
+    query_embedding = get_embedding(client, search_query)
 
-    # Creating a column to store the cosine similarity between that row's vector embedding and the search query's vector embedding
-    if combined:
-        df['Cosine Similarity'] = df[COMBINED_EMBED_COLUMN_NAME].apply(lambda x: get_cos_similarity(x, query_embedding))
-    else:
-        df['Cosine Similarity'] = df[DETAILS_EMBED_COLUMN_NAME].apply(lambda x: get_cos_similarity(x, query_embedding))
+    # Selecting the vector column in which to perform the search
+    col = LOCDESCR_EMBED_COLUMN_NAME if vector_column == 1 else LOCDETAILS_EMBED_COLUMN_NAME
 
-    # results = (
-    #     df.sort_values("Cosine Similarity", ascending=False)
-    #     .head(n)
-    #     # .combined.str.replace("Title: ", "")
-    #     # .str.replace("; Content:", ": ")
-    # )
+    # Creates a column to store the cosine similarity between each row's vector embedding and the search query's vector embedding
+    df[col].apply(lambda x: get_cos_similarity(x, query_embedding))
 
     # Returns the n rows with the greatest cosine similarity
-    return df.sort_values("Cosine Similarity", ascending=False, ignore_index=True)[['id', 'incidentdetails', 'location']].head(n)
+    return df.sort_values("Cosine Similarity", ascending=False, ignore_index=True)[['id', 'incidentdetails', 'location', 'description']].head(n)
 
 def get_cos_similarity(first, second):
     return np.dot(first, second)/(norm(first)*norm(second))
@@ -149,7 +151,8 @@ def main():
     # Adds embeddings for existing records in the database
     # add_embeddings(cur, conn, client)
 
-    print(get_search_results(cur, client, engine, "Assault near the library", combined=True, n=5))
+    # Vector column 0 corresponds to location + incident details, 1 corresponds to location + suspect description
+    print(get_search_results(cur, client, engine, "Assault near the library", vector_column=0, combined=True, n=5))
     
     # Closing the database connection
     cur.close()

@@ -16,7 +16,7 @@ from bs4 import BeautifulSoup
 
 from openai import OpenAI
 
-from analysis import get_embedding, TABLE_NAME
+from search import get_embedding, TABLE_NAME
 
 # For pausing in between requests to avoid rate limits
 import time
@@ -57,7 +57,7 @@ def create_table_if_not_exists(cur, conn):
     conn.commit()
     print("Table 'Incidents' created or already exists.")
 
-def process_response(cur, conn, response, previous_response_data, month, year, p):
+def process_response(cur, conn, client, response, previous_response_data, month, year, p):
     # If the response is valid
     if response.status_code == 200:
         data = response.json().get('data', [])
@@ -68,7 +68,7 @@ def process_response(cur, conn, response, previous_response_data, month, year, p
         # The next page does contain new data, which is stored in the database
         else:
             print(f"Storing data from page {p}...")
-            insert_data(cur, conn, data)
+            insert_data(cur, conn, data, client)
             return True
     # Response is not valid
     return None
@@ -136,7 +136,7 @@ def scrape_recent_incidents(cur, conn, client):
 """
 Scrapes archived security incidents from previous years.
 """
-def scrape_archived_incidents(cur, conn):
+def scrape_archived_incidents(cur, conn, client):
     # Creating the session object
     s = requests.Session()
     s.verify = False
@@ -196,7 +196,7 @@ def scrape_archived_incidents(cur, conn):
                         #                            verify=False, data=payload, headers=headers)
 
                         # Evaluating whether the response for the current month, year, and page contains new data (true), no new data (false), or is invalid (None)
-                        result = process_response(cur, conn, response, previous_response_data, month, year, p)
+                        result = process_response(cur, conn, client, response, previous_response_data, month, year, p)
                         # If the response was valid and went through properly, then there's no need to check the other URL
                         if result is not None:
                             break
@@ -233,11 +233,11 @@ def scrape_archived_incidents(cur, conn):
 
     print(f"Completed scraping archived incidents from {START_YEAR} to {CURRENT_YEAR-1}")
 
-def insert_data(cur, conn, data, client=None):
+def insert_data(cur, conn, data, client):
     # Prepares the first part of the query that declares the columns for which values are being added
     # ON CONFLICT portion ensures duplicates aren't being added in
     insert_query = sql.SQL("""
-    INSERT INTO {} (page, incidentType, datePosted, dateReported, dateOfIncident, location, otherIncidentType, incidentDetails, description, detailsembed, combinedembed)
+    INSERT INTO {} (page, incidentType, datePosted, dateReported, dateOfIncident, location, otherIncidentType, incidentDetails, description, locdetailsembed, locdescrembed)
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (page) DO NOTHING
     """.format(sql.Identifier(TABLE_NAME)))
@@ -260,15 +260,12 @@ def insert_data(cur, conn, data, client=None):
         time.sleep(7)
 
         # Creating a string that contains both the location and details of the incident
-        combined_string = item['location'] + " " + incident_details
+        locdetails_string = item['location'] + " " + incident_details
+        locdescr_string = item['location'] + " " + description
 
-        # Adding vector embeddings of the incident details and incident details + location if we're scraping new incidents from the current year
-        if client is not None:
-            details_embedding = get_embedding(client, incident_details, combined=False)
-            combined_embedding = get_embedding(client, combined_string, combined=True)
-        else:
-            details_embedding = None
-            combined_embedding = None
+        # Adding vector embeddings of the location + incident details and location + suspect description if we're scraping new incidents from the current year
+        locdetails_embedding = get_embedding(client, locdetails_string)
+        locdescr_embedding = get_embedding(client, locdescr_string)
 
         # Executing the query and passing in the values to add to the table
         cur.execute(insert_query, (
@@ -281,8 +278,8 @@ def insert_data(cur, conn, data, client=None):
             otherIncidentTypeValue,
             incident_details,
             description,
-            details_embedding,
-            combined_embedding
+            locdetails_embedding,
+            locdescr_embedding
         ))
 
     # Committing changes
