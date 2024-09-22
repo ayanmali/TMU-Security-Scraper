@@ -16,7 +16,7 @@ from bs4 import BeautifulSoup
 
 from openai import OpenAI
 
-from analysis import get_embedding, EMBED_COLUMN_NAME, TABLE_NAME
+from analysis import get_embedding, TABLE_NAME
 
 # For pausing in between requests to avoid rate limits
 import time
@@ -49,7 +49,7 @@ def create_table_if_not_exists(cur, conn):
         location TEXT,
         otherIncidentType TEXT,
         incidentDetails TEXT,
-        description TEXT
+        description TEXT,
     )
     """)
     
@@ -104,12 +104,13 @@ def scrape_recent_incidents(cur, conn, client):
     p = 1
     while True:
         print(f"Scraping page {p}...")
-        #page = 1
+
         url = f"https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents/jcr:content/content/restwocoltwoone/c1/ressecuritystack.data.{p}.json"
 
         # Getting the response and storing it
         response = requests.request("GET", url, #proxies=proxies,
                                     verify=False, data=payload, headers=headers)
+        
         if response.status_code == 200:
             if response.json().get('data') != []:
                 print(f"Storing data from page {p}...")
@@ -119,6 +120,7 @@ def scrape_recent_incidents(cur, conn, client):
                 # No more pages left to scrape
                 print(f"Endpoint for page {p} contains no data")
                 break
+
         else:
             print(f"Failed to retrieve data from {url}: Status code {response.status_code}")
             break
@@ -235,8 +237,8 @@ def insert_data(cur, conn, data, client=None):
     # Prepares the first part of the query that declares the columns for which values are being added
     # ON CONFLICT portion ensures duplicates aren't being added in
     insert_query = sql.SQL("""
-    INSERT INTO {} (page, incidentType, datePosted, dateReported, dateOfIncident, location, otherIncidentType, incidentDetails, description, detailsembed)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    INSERT INTO {} (page, incidentType, datePosted, dateReported, dateOfIncident, location, otherIncidentType, incidentDetails, description, detailsembed, combinedembed)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (page) DO NOTHING
     """.format(sql.Identifier(TABLE_NAME)))
 
@@ -256,12 +258,17 @@ def insert_data(cur, conn, data, client=None):
         # Getting incident and description information
         incident_details, description = get_details(item['page'])
         time.sleep(7)
-        
-        # Adding a vector embedding of the description if we're scraping new incidents from the current year
+
+        # Creating a string that contains both the location and details of the incident
+        combined_string = item['location'] + " " + incident_details
+
+        # Adding vector embeddings of the incident details and incident details + location if we're scraping new incidents from the current year
         if client is not None:
-            embedding = get_embedding(client, incident_details)
+            details_embedding = get_embedding(client, incident_details, combined=False)
+            combined_embedding = get_embedding(client, combined_string, combined=True)
         else:
-            embedding = None
+            details_embedding = None
+            combined_embedding = None
 
         # Executing the query and passing in the values to add to the table
         cur.execute(insert_query, (
@@ -274,7 +281,8 @@ def insert_data(cur, conn, data, client=None):
             otherIncidentTypeValue,
             incident_details,
             description,
-            embedding
+            details_embedding,
+            combined_embedding
         ))
 
     # Committing changes
