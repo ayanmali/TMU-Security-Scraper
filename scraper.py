@@ -14,6 +14,10 @@ from postgres_params import db_params
 # For parsing HTML from the incident details page
 from bs4 import BeautifulSoup
 
+from openai import OpenAI
+
+from analysis import get_embedding, EMBED_COLUMN_NAME, TABLE_NAME
+
 # For pausing in between requests to avoid rate limits
 import time
 
@@ -72,7 +76,7 @@ def process_response(cur, conn, response, previous_response_data, month, year, p
 """
 Scrapes security incidents that have occured in the current year to date.
 """
-def scrape_recent_incidents(cur, conn):
+def scrape_recent_incidents(cur, conn, client):
     payload = ""
 
     headers = {
@@ -110,7 +114,7 @@ def scrape_recent_incidents(cur, conn):
             if response.json().get('data') != []:
                 print(f"Storing data from page {p}...")
                 # Storing the data associated with the 'data' key of the response object
-                insert_data(cur, conn, response.json()['data'])
+                insert_data(cur, conn, response.json()['data'], client=client)
             else:
                 # No more pages left to scrape
                 print(f"Endpoint for page {p} contains no data")
@@ -227,14 +231,14 @@ def scrape_archived_incidents(cur, conn):
 
     print(f"Completed scraping archived incidents from {START_YEAR} to {CURRENT_YEAR-1}")
 
-def insert_data(cur, conn, data):
+def insert_data(cur, conn, data, client=None):
     # Prepares the first part of the query that declares the columns for which values are being added
     # ON CONFLICT portion ensures duplicates aren't being added in
     insert_query = sql.SQL("""
-    INSERT INTO incidents (page, incidentType, datePosted, dateReported, dateOfIncident, location, otherIncidentType, incidentDetails, description)
+    INSERT INTO {} (page, incidentType, datePosted, dateReported, dateOfIncident, location, otherIncidentType, incidentDetails, description)
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (page) DO NOTHING
-    """)
+    """.format(sql.Identifier(TABLE_NAME)))
 
     # Adding the data from each incident returned in the response
     for item in data:
@@ -265,6 +269,15 @@ def insert_data(cur, conn, data):
             incident_details,
             description
         ))
+
+        if client is not None:
+            query = sql.SQL("SELECT MAX(id) FROM {}").format(sql.Identifier(TABLE_NAME))
+            cur.execute(query)
+            last_item_id = cur.fetchone()[0]
+
+            embedding = get_embedding(client, incident_details)
+            query = sql.SQL("UPDATE {} SET {} = %s WHERE id = %s".format(sql.Identifier(TABLE_NAME), sql.Identifier(EMBED_COLUMN_NAME)))
+            cur.execute(query, (embedding, last_item_id))
     
     # Committing changes
     conn.commit()
@@ -343,11 +356,12 @@ def main():
     # Setting up the database connection
     conn = psycopg2.connect(**db_params)
     cur = conn.cursor()
+    client = OpenAI()
     # Creating the table if it doesn't already exist
     create_table_if_not_exists(cur, conn)
 
     # Getting and storing incident data
-    scrape_recent_incidents(cur, conn)
+    scrape_recent_incidents(cur, conn, client)
     scrape_archived_incidents(cur, conn)
 
     # Closing the database connection
