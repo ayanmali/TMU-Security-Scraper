@@ -120,10 +120,10 @@ def get_search_results(cur, client, engine, search_query, vector_column, n=5):
     col = LOCDESCR_EMBED_COLUMN_NAME if vector_column == 1 else LOCDETAILS_EMBED_COLUMN_NAME
 
     # Creates a column to store the cosine similarity between each row's vector embedding and the search query's vector embedding
-    df[col].apply(lambda x: get_cos_similarity(x, query_embedding))
+    df['Similarity'] = df[col].apply(lambda x: get_cos_similarity(x, query_embedding))
 
     # Returns the n rows with the greatest cosine similarity
-    return df.sort_values("Cosine Similarity", ascending=False, ignore_index=True)[['id', 'incidentdetails', 'location', 'description']].head(n)
+    return df.sort_values("Similarity", ascending=False, ignore_index=True)[['id', 'incidentdetails', 'location', 'description']].head(n)
 
 def get_cos_similarity(first, second):
     return np.dot(first, second)/(norm(first)*norm(second))
@@ -152,7 +152,7 @@ def main():
     # add_embeddings(cur, conn, client)
 
     # Vector column 0 corresponds to location + incident details, 1 corresponds to location + suspect description
-    print(get_search_results(cur, client, engine, "Assault near the library", vector_column=0, combined=True, n=5))
+    print(get_search_results(cur, client, engine, "", vector_column=0, n=5))
     
     # Closing the database connection
     cur.close()

@@ -240,7 +240,7 @@ def insert_data(cur, conn, data, client):
     INSERT INTO {} (page, incidentType, datePosted, dateReported, dateOfIncident, location, otherIncidentType, incidentDetails, description, locdetailsembed, locdescrembed)
     VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (page) DO NOTHING
-    """.format(sql.Identifier(TABLE_NAME)))
+    """).format(sql.Identifier(TABLE_NAME))
 
     # Adding the data from each incident returned in the response
     for item in data:
