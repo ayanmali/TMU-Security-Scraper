@@ -19,6 +19,7 @@ sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrap
 from postgres_params import db_params, user, password, host, port, dbname
 
 TABLE_NAME = "incidents"
+N_NEIGHBORS = 5
 
 def load_and_transform_data(engine):
     # Loading the data into a DataFrame
@@ -29,25 +30,30 @@ def load_and_transform_data(engine):
     # For the date/time of the incident
     get_dates(df)
 
-    text_feature_names = {}
+    text_features = {}
     vectorizers = {}
 
     # For incident details, locations, and suspect descriptions
     for col in ('incidentdetails', 'description', 'location'):
-        df, text_feature_names[col], vectorizers[col] = extract_text_features(df, col=col)
+        tfidf_df, _, vectorizers[col] = extract_text_features(df, col=col)
+        text_features[col] = scale_text_features(tfidf_df)
 
-    df = scale_text_features(df, text_feature_names)
+    # Concatenate all features
+    result_df = pd.concat([df] + list(text_features.values()), axis=1)
 
-    return df, vectorizers
+    return result_df, vectorizers
 
 def one_hot_encoding(df):
     df['incidenttype_cleaned'] = df['incidenttype'].replace({": Suspect Arrested" : ""}, regex=True)
-    df = pd.concat(df, pd.get_dummies(df['incidenttype_cleaned'], prefix='incidenttype'), axis=1)
+    df = pd.concat([df, pd.get_dummies(df['incidenttype_cleaned'], prefix='incidenttype')], axis=1)
 
+"""
+Extracts the month, day of week, and hour of each incident's date.
+"""
 def get_dates(df):
     df['day_of_week'] = df['dateofincident'].dt.dayofweek
     df['month'] = df['dateofincident'].dt.month
-    df['hour'] = pd.to_datetime(df['time']).dt.hour
+    df['hour'] = df['dateofincident'].dt.hour
 
     # One hot encoding the new date/time columns
     day_dummies = pd.get_dummies(df['day_of_week'], prefix='day')
@@ -63,30 +69,44 @@ def get_dates(df):
     df = pd.concat([df, day_dummies, month_dummies], axis=1)
 
 """
-Extracts features from the incident details, location, and description columns.
+Extracts features from a given text column (incident details, location, or description).
 """
 def extract_text_features(df, col):
     vectorizer = TfidfVectorizer(stop_words='english')
     matrix = vectorizer.fit_transform(df[col])
-    array = matrix.to_array()
+    array = matrix.toarray()
 
     feature_names = vectorizer.get_feature_names_out()
-    tfidf_df = pd.DataFrame(array, columns=feature_names)
+    tfidf_df = pd.DataFrame(array, columns=[f"{col}_{name}" for name in feature_names])
 
-    df = pd.concat([df, tfidf_df], axis=1)
+    # df = pd.concat([df, tfidf_df], axis=1)
 
-    return df, feature_names, vectorizer
+    return tfidf_df, feature_names, vectorizer
 
 """
 Scales the columns in the DataFrame corresponding to text feature data using a StandardScaler.
 """
-def scale_text_features(df, text_feature_names):
-    for col in text_feature_names.keys():
-        scaler = StandardScaler()
-        scaled_text_features = scaler.fit_transform(df[text_feature_names[col]])
-        df = pd.concat(df, scaled_text_features)
+def scale_text_features(tfidf_feature_cols):
+    # Initializing a new scaler object
+    scaler = StandardScaler()
+    # Creating a new DataFrame that contains the scaled text data
+    scaled_features = scaler.fit_transform(tfidf_feature_cols)
+    # Adding the scaled data to the original DataFrame
+    return pd.DataFrame(scaled_features, columns=tfidf_feature_cols.columns)
 
-    return df
+# Function to get recommendations
+def get_recommendations(df, knn, incident_id, n_recommendations=5):
+    incident_vector = df[incident_id]
+    distances, indices = knn.kneighbors(incident_vector.reshape(1, -1), n_neighbors=n_recommendations+1)
+    
+    # Exclude the incident itself
+    similar_incidents = df.iloc[indices[0][1:]]
+    return similar_incidents
+
+def train_model(X):
+    knn = NearestNeighbors(n_neighbors=N_NEIGHBORS, metric='cosine')
+    knn.fit(X)
+    return knn
 
 """
 Creates the cursor and connection objects for interacting with the database.
@@ -105,8 +125,11 @@ def main():
     register_vector(conn)
 
     df, vectorizers = load_and_transform_data(engine)
+
+    # df.to_csv("recommendations.csv")
     # print(df['dateofincident'])
 
+    knn = train_model()
 
 if __name__ == "__main__":
     main()
