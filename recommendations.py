@@ -29,11 +29,14 @@ def load_and_transform_data(engine):
     # For the date/time of the incident
     get_dates(df)
 
+    text_feature_names = {}
     vectorizers = {}
 
     # For incident details, locations, and suspect descriptions
     for col in ('incidentdetails', 'description', 'location'):
-        df, vectorizers[col] = extract_text_features(df, col=col)
+        df, text_feature_names[col], vectorizers[col] = extract_text_features(df, col=col)
+
+    df = scale_text_features(df, text_feature_names)
 
     return df, vectorizers
 
@@ -72,7 +75,18 @@ def extract_text_features(df, col):
 
     df = pd.concat([df, tfidf_df], axis=1)
 
-    return df, vectorizer
+    return df, feature_names, vectorizer
+
+"""
+Scales the columns in the DataFrame corresponding to text feature data using a StandardScaler.
+"""
+def scale_text_features(df, text_feature_names):
+    for col in text_feature_names.keys():
+        scaler = StandardScaler()
+        scaled_text_features = scaler.fit_transform(df[text_feature_names[col]])
+        df = pd.concat(df, scaled_text_features)
+
+    return df
 
 """
 Creates the cursor and connection objects for interacting with the database.
