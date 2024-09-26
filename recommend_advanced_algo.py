@@ -1,3 +1,7 @@
+"""
+Uses incident type, date of incident, as well as location, incident details, and suspect descriptions to suggest recommendations.
+"""
+
 # For converting text features into vectors
 from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import StandardScaler 
@@ -24,11 +28,14 @@ N_NEIGHBORS = 5
 def load_and_transform_data(engine):
     # Loading the data into a DataFrame
     df = pd.read_sql(f"SELECT * FROM {TABLE_NAME} ORDER BY id", engine)
+    # Storing a duplicate of the DataFrame for reference when recommendations are suggested
+    copied_df = df.copy(deep=True)
+    df = df.drop(columns=['page', 'otherincidenttype', 'detailsembed', 'locdetailsembed', 'locdescrembed', 'locationembed', 'descrembed'], axis=1)
 
     # For incident type
-    one_hot_encoding(df)
+    df = one_hot_encoding(df)
     # For the date/time of the incident
-    get_dates(df)
+    df = get_dates(df)
 
     text_features = {}
     vectorizers = {}
@@ -38,14 +45,19 @@ def load_and_transform_data(engine):
         tfidf_df, _, vectorizers[col] = extract_text_features(df, col=col)
         text_features[col] = scale_text_features(tfidf_df)
 
+    df = df.drop(['incidentdetails', 'description', 'location'], axis=1)
+
     # Concatenate all features
     result_df = pd.concat([df] + list(text_features.values()), axis=1)
 
-    return result_df, vectorizers
+    return result_df, copied_df, vectorizers
 
 def one_hot_encoding(df):
     df['incidenttype_cleaned'] = df['incidenttype'].replace({": Suspect Arrested" : ""}, regex=True)
-    df = pd.concat([df, pd.get_dummies(df['incidenttype_cleaned'], prefix='incidenttype')], axis=1)
+    df = pd.concat([df, pd.get_dummies(df['incidenttype_cleaned'], prefix='incidenttype', dtype=int)], axis=1)
+    df = df.drop(columns=['incidenttype', 'incidenttype_cleaned'], axis=1)
+
+    return df
 
 """
 Extracts the month, day of week, and hour of each incident's date.
@@ -56,17 +68,22 @@ def get_dates(df):
     df['hour'] = df['dateofincident'].dt.hour
 
     # One hot encoding the new date/time columns
-    day_dummies = pd.get_dummies(df['day_of_week'], prefix='day')
-    month_dummies = pd.get_dummies(df['month'], prefix='month')
+    day_dummies = pd.get_dummies(df['day_of_week'], prefix='day', dtype=int)
+    month_dummies = pd.get_dummies(df['month'], prefix='month', dtype=int)
+    hour_dummies = pd.get_dummies(df['hour'], prefix='hour', dtype=int)
 
     # Renaming the columns to actual day names
     day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
     day_dummies.columns = [f'is_{day}' for day in day_names]
     month_names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
     month_dummies.columns = [f'is_{month}' for month in month_names]
+    hour_names = [str(x) for x in list(range(24))]
+    hour_dummies.columns = [f'is_{hour}' for hour in hour_names]
 
     # Adding the new columns to the original DataFrame
-    df = pd.concat([df, day_dummies, month_dummies], axis=1)
+    df = pd.concat([df, day_dummies, month_dummies, hour_dummies], axis=1)
+    df = df.drop(columns=['dateofincident', 'dateposted', 'datereported', 'day_of_week', 'month', 'hour'])
+    return df
 
 """
 Extracts features from a given text column (incident details, location, or description).
@@ -94,18 +111,28 @@ def scale_text_features(tfidf_feature_cols):
     # Adding the scaled data to the original DataFrame
     return pd.DataFrame(scaled_features, columns=tfidf_feature_cols.columns)
 
-# Function to get recommendations
-def get_recommendations(df, knn, incident_id, n_recommendations=5):
-    incident_vector = df[incident_id]
-    distances, indices = knn.kneighbors(incident_vector.reshape(1, -1), n_neighbors=n_recommendations+1)
-    
-    # Exclude the incident itself
+def get_recommendations(id, df, model, n_recommendations=5):
+    # Find the index of the given id in the DataFrame
+    try:
+        idx = df.index[df['id'] == id].tolist()[0]
+    except IndexError:
+        print(f"ID {id} not found in the dataset.")
+        return None
+
+    # Get the feature vector for the given id
+    incident_vector = df.iloc[idx].values.reshape(1, -1)
+
+    # Find the nearest neighbors
+    distances, indices = model.kneighbors(incident_vector, n_neighbors=n_recommendations+1)
+
+    # The first result will be the incident itself, so we exclude it
     similar_incidents = df.iloc[indices[0][1:]]
+
     return similar_incidents
 
-def train_model(X):
-    knn = NearestNeighbors(n_neighbors=N_NEIGHBORS, metric='cosine')
-    knn.fit(X)
+def train_model(df, n_neighbors):
+    knn = NearestNeighbors(n_neighbors=n_neighbors, metric='cosine')
+    knn.fit(df)
     return knn
 
 """
@@ -124,12 +151,19 @@ def main():
     conn, cur = setup_db()
     register_vector(conn)
 
-    df, vectorizers = load_and_transform_data(engine)
+    df, copied_df, vectorizers = load_and_transform_data(engine)
 
     # df.to_csv("recommendations.csv")
     # print(df['dateofincident'])
+    
+    # print(df.isna().any(axis=1))
+    knn = train_model(df, N_NEIGHBORS)
+    id_to_check = 107
+    recommendations = get_recommendations(id_to_check, df, knn)
 
-    knn = train_model()
+    if recommendations is not None:
+        print(f"Recommendations for incident {id_to_check}:")
+        print(recommendations[['id']])
 
 if __name__ == "__main__":
     main()

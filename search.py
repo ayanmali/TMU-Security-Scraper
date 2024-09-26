@@ -23,7 +23,9 @@ import numpy as np
 from numpy.linalg import norm
 
 # Defining constants
-# DETAILS_EMBED_COLUMN_NAME = "detailsembed"
+DETAILS_EMBED_COLUMN_NAME = "detailsembed"
+LOCATION_EMBED_COLUMN_NAME = "locationembed"
+DESCRIPTION_EMBED_COLUMN_NAME = "descrembed"
 LOCDETAILS_EMBED_COLUMN_NAME = "locdetailsembed"
 LOCDESCR_EMBED_COLUMN_NAME = "locdescrembed"
 TABLE_NAME = "incidents"
@@ -86,12 +88,41 @@ def add_embeddings(cur, conn, client):
 
         # Getting the embedding for the incident details string for the given row
         print(f"Generating embeddings for row {row}")
+        details_embedding = get_embedding(client, details_string, dims=N_DIMS-128)
         locdetails_embedding = get_embedding(client, locdetails_string)
         locdescr_embedding = get_embedding(client, locdescr_string)
 
         # Storing both embeddings in the table in their appropriate columns
-        query = sql.SQL("UPDATE {} SET {} = %s, {} = %s WHERE id = %s").format(sql.Identifier(TABLE_NAME), sql.Identifier(LOCDETAILS_EMBED_COLUMN_NAME), sql.Identifier(LOCDESCR_EMBED_COLUMN_NAME))
-        cur.execute(query, (locdetails_embedding, locdescr_embedding, row))
+        query = sql.SQL("UPDATE {} SET {} = %s, {} = %s, {} = %s WHERE id = %s").format(sql.Identifier(TABLE_NAME), sql.Identifier(DETAILS_EMBED_COLUMN_NAME), sql.Identifier(LOCDETAILS_EMBED_COLUMN_NAME), sql.Identifier(LOCDESCR_EMBED_COLUMN_NAME))
+        cur.execute(query, (details_embedding, locdetails_embedding, locdescr_embedding, row))
+
+        # Commiting changes to the DB
+        conn.commit()
+
+def add_loc_and_descr_embeddings(cur, conn, client):
+    # Use sql.Identifier to properly quote the table name
+    query = sql.SQL("SELECT MAX(id) FROM {}").format(sql.Identifier(TABLE_NAME))
+    cur.execute(query)
+    num_rows = cur.fetchone()[0]
+    print(f"Found {num_rows} rows")
+
+    for row in range(1, num_rows+1):
+        print(f"Adding embeddings for row {row}...")
+
+        # Getting the location and incident details for the given row
+        query = sql.SQL("SELECT location, description FROM {} WHERE id = %s").format(sql.Identifier(TABLE_NAME))
+        cur.execute(query, (row, ))
+        result = cur.fetchone()
+        location_string, description_string = result[0], result[1]
+
+        # Getting the embedding for the incident details string for the given row
+        print(f"Generating embeddings for row {row}")
+        loc_embedding = get_embedding(client, location_string, dims=N_DIMS-256)
+        descr_embedding = get_embedding(client, description_string, dims=N_DIMS-128)
+
+        # Storing both embeddings in the table in their appropriate columns
+        query = sql.SQL("UPDATE {} SET {} = %s, {} = %s WHERE id = %s").format(sql.Identifier(TABLE_NAME), sql.Identifier(LOCATION_EMBED_COLUMN_NAME), sql.Identifier(DESCRIPTION_EMBED_COLUMN_NAME))
+        cur.execute(query, (loc_embedding, descr_embedding, row))
 
         # Commiting changes to the DB
         conn.commit()
@@ -99,12 +130,12 @@ def add_embeddings(cur, conn, client):
 """
 Generates a vector embedding for the given string.
 """
-def get_embedding(client, input_str):
+def get_embedding(client, input_str, dims=N_DIMS):
     # Generating the embedding based on the input string
     response = client.embeddings.create(
         input=input_str,
         model=EMBED_MODEL,
-        dimensions=N_DIMS
+        dimensions=dims
     )
     return response.data[0].embedding
 
@@ -150,9 +181,10 @@ def main():
 
     # Adds embeddings for existing records in the database
     # add_embeddings(cur, conn, client)
+    add_loc_and_descr_embeddings(cur, conn, client)
 
     # Vector column 0 corresponds to location + incident details, 1 corresponds to location + suspect description
-    print(get_search_results(cur, client, engine, "", vector_column=0, n=5))
+    # print(get_search_results(cur, client, engine, "", vector_column=0, n=5))
     
     # Closing the database connection
     cur.close()

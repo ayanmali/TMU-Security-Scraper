@@ -89,8 +89,8 @@ def insert_data(cur, conn, data, client):
     # Prepares the first part of the query that declares the columns for which values are being added
     # ON CONFLICT portion ensures duplicates aren't being added in
     insert_query = sql.SQL("""
-    INSERT INTO {} (page, incidentType, datePosted, dateReported, dateOfIncident, location, otherIncidentType, incidentDetails, description, locdetailsembed, locdescrembed)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    INSERT INTO {} (page, incidentType, datePosted, dateReported, dateOfIncident, location, otherIncidentType, incidentDetails, description, detailsembed, locdetailsembed, locdescrembed)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (page) DO NOTHING
     """).format(sql.Identifier(TABLE_NAME))
 
@@ -116,6 +116,7 @@ def insert_data(cur, conn, data, client):
         locdescr_string = item['location'] + " " + description
 
         # Adding vector embeddings of the location + incident details and location + suspect description if we're scraping new incidents from the current year
+        details_embedding = get_embedding(client, incident_details, dims=256)
         locdetails_embedding = get_embedding(client, locdetails_string)
         locdescr_embedding = get_embedding(client, locdescr_string)
 
@@ -130,6 +131,7 @@ def insert_data(cur, conn, data, client):
             otherIncidentTypeValue,
             incident_details,
             description,
+            details_embedding,
             locdetails_embedding,
             locdescr_embedding
         ))
