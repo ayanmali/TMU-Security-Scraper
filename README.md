@@ -1,5 +1,2 @@
-# TMU-Security-Scraper
-Scrapes TMU security incidents from the official website.
-
-#TODO
-Integrate a Postgres database
+# TMU-Security-Incidents
+Applying machine learning to TMU security incident data to help improve campus security.
