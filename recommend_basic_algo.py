@@ -16,7 +16,7 @@ import pandas as pd
 # For the database connection
 from sqlalchemy import create_engine
 import psycopg2
-from psycopg2 import sql
+# from psycopg2 import sql
 from pgvector.psycopg2 import register_vector
 
 # Database credentials

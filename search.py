@@ -180,11 +180,13 @@ def main():
     client = OpenAI()
 
     # Adds embeddings for existing records in the database
-    # add_embeddings(cur, conn, client)
+    
+    add_embeddings(cur, conn, client)
     add_loc_and_descr_embeddings(cur, conn, client)
 
+    query = ""
     # Vector column 0 corresponds to location + incident details, 1 corresponds to location + suspect description
-    # print(get_search_results(cur, client, engine, "", vector_column=0, n=5))
+    print(get_search_results(cur, client, engine, query, vector_column=0, n=5))
     
     # Closing the database connection
     cur.close()
