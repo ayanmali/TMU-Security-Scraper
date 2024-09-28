@@ -34,35 +34,6 @@ N_DIMS = 256 + 128
 # COMBINED_N_DIMS = N_DIMS + 128
 
 """
-- Search feature ✅
-    - Can use: OpenAI/Voyage Embeddings API, PGVector, TypeSense for search
-    1. Generate embeddings
-    2. Store embeddings in DB with PGVector
-    3. Query from Python script
-
-- Similar Incident Recommendation System
-    - Features such as incident type, suspect descriptions, date and time, incident details (bag of words, tf-idf), and location data (latitude, longitude, proximity to landmarks)
-    - KNN, matrix factorization
-
-- Time Series Forecasting
-    - likelihood of incidents occurring during specific times or days
-    - number of incidents expected to occur in future time periods (ARIMA, Prophet, SARIMA to account for trends and seasonality)
-
-- Clustering and Anomaly Detection
-    - K-Means or DBSCAN to identify patterns in incident characteristics
-    - Train an autoencoder or One Class SVM to identify incidents that deviate from typical patterns
-    - Look for anomalies in incident frequencies
-
-- Location Based Risk Assessment
-    - Spatial Clustering to identify areas with high concentrations of incidents/high risk areas
-    - Recommendation Algorithm to suggest patrol routes/areas to focus on based on historical data
-
-- Incident Type Prediction (Classifier Model)
-- Topic Modelling Using Latent Dirichlet Allocation to find underlying themes in incident descriptions or suspect descriptions
-
-"""
-
-"""
 Adds vector embeddings to each row of the table (i.e. each incident) based on its incident details and location + incident details, respectively
 """
 def add_embeddings(cur, conn, client):

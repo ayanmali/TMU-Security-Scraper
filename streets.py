@@ -1,0 +1,3 @@
+north_to_south = {'Carlton Street' : 0, 'College Street' : 0, 'Gerrard Street' : 1, 'Gould Street' : 2, 'Dundas Street' : 3}
+west_to_east = {'Yonge Street' : 0, 'O\'Keefe Lane' : 1, 'Nelson Mandela Walk' : 2, 'Victoria Street' : 2, 'Bond Street' : 3, 'Church Street' : 4, 'Dalhousie Street' : 5, 'Mutual Street' : 6, 'Jarvis Street' : 7}
+landmarks = {'Balzac' : , 'Library', 'Podium', 'Student Learning Centre', 'Mattamy Athletic Centre', 'Kerr Hall Quad', 'Tim Hortons', 'Recreation and Athletics Centre', 'Ted Rogers School of Management'}

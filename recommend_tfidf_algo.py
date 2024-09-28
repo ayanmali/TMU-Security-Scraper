@@ -13,14 +13,14 @@ from sklearn.neighbors import NearestNeighbors
 import pandas as pd
 # For the database connection
 from sqlalchemy import create_engine
-import psycopg2
+# import psycopg2
 # from psycopg2 import sql
-from pgvector.psycopg2 import register_vector
+# from pgvector.psycopg2 import register_vector
 
 # Database credentials
 import sys
 sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers')
-from postgres_params import db_params, user, password, host, port, dbname
+from postgres_params import user, password, host, port, dbname #, db_params
 
 TABLE_NAME = "incidents"
 N_NEIGHBORS = 5
@@ -42,7 +42,7 @@ def load_and_transform_data(engine):
 
     # For incident details, locations, and suspect descriptions
     for col in ('incidentdetails', 'description', 'location'):
-        tfidf_df, _, vectorizers[col] = extract_text_features(df, col=col)
+        tfidf_df, vectorizers[col], _ = extract_text_features(df, col=col)
         text_features[col] = scale_text_features(tfidf_df)
 
     df = df.drop(['incidentdetails', 'description', 'location'], axis=1)
@@ -96,20 +96,18 @@ def extract_text_features(df, col):
     feature_names = vectorizer.get_feature_names_out()
     tfidf_df = pd.DataFrame(array, columns=[f"{col}_{name}" for name in feature_names])
 
-    # df = pd.concat([df, tfidf_df], axis=1)
-
-    return tfidf_df, feature_names, vectorizer
+    return tfidf_df, vectorizer, feature_names
 
 """
 Scales the columns in the DataFrame corresponding to text feature data using a StandardScaler.
 """
-def scale_text_features(tfidf_feature_cols):
+def scale_text_features(tfidf_feature_df):
     # Initializing a new scaler object
     scaler = StandardScaler()
     # Creating a new DataFrame that contains the scaled text data
-    scaled_features = scaler.fit_transform(tfidf_feature_cols)
+    scaled_features = scaler.fit_transform(tfidf_feature_df)
     # Adding the scaled data to the original DataFrame
-    return pd.DataFrame(scaled_features, columns=tfidf_feature_cols.columns)
+    return pd.DataFrame(scaled_features, columns=tfidf_feature_df.columns)
 
 def get_recommendations(id, df, model, n_recommendations=5):
     # Find the index of the given id in the DataFrame
@@ -138,18 +136,18 @@ def train_model(df, n_neighbors):
 """
 Creates the cursor and connection objects for interacting with the database.
 """
-def setup_db():
-    conn = psycopg2.connect(**db_params)
-    cur = conn.cursor()
-    cur.execute('CREATE EXTENSION IF NOT EXISTS vector')
-    return conn, cur
+# def setup_db():
+#     conn = psycopg2.connect(**db_params)
+#     cur = conn.cursor()
+#     cur.execute('CREATE EXTENSION IF NOT EXISTS vector')
+#     return conn, cur
 
 def main():
     # Setting up the database connection
     engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{dbname}')
 
-    conn, cur = setup_db()
-    register_vector(conn)
+    # conn, cur = setup_db()
+    # register_vector(conn)
 
     df, copied_df, vectorizers = load_and_transform_data(engine)
 
