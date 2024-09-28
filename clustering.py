@@ -29,7 +29,8 @@ sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrap
 from postgres_params import user, password, host, port, dbname #, db_params
 
 TABLE_NAME = "incidents"
-N_CLUSTERS = 5
+N_CLUSTERS = 3
+FEATURES_TO_ANALYZE = ['incidenttype_cleaned', 'location', 'day_of_week', 'hour', 'month']
 
 def load_and_transform_data(engine):
     # Loading the data into a DataFrame
@@ -88,7 +89,7 @@ def get_dates(df):
 
     # Adding the new columns to the original DataFrame
     df = pd.concat([df, day_dummies, month_dummies, hour_dummies], axis=1)
-    df = df.drop(columns=['dateposted', 'datereported', 'day_of_week', 'month', 'hour'])
+    df = df.drop(columns=['dateposted', 'datereported', 'dateofincident'])
     return df
 
 """
@@ -115,14 +116,17 @@ def scale_text_features(tfidf_feature_df):
     # Adding the scaled data to the original DataFrame
     return pd.DataFrame(scaled_features, columns=tfidf_feature_df.columns)
 
-def train_model(df):
+def train_model(X):
     kmeans = KMeans(n_clusters=N_CLUSTERS, random_state=42)
-    kmeans.fit(df.drop(['incidenttype_cleaned', 'location', 'dateofincident'], axis=1))
+    kmeans.fit(X)
     labels = kmeans.labels_
     return kmeans, labels
 
-def show_silhouette_analysis(df):
-    range_n_clusters = [2, 3, 4, 5, 6]
+def silhouette_analysis(X):
+    tsne = TSNE(n_components=2, random_state=42)
+    X_reduced = tsne.fit_transform(X)
+
+    range_n_clusters = list(range(2,6))
 
     for n_clusters in range_n_clusters:
         # Create a subplot with 1 row and 2 columns
@@ -135,17 +139,17 @@ def show_silhouette_analysis(df):
         ax1.set_xlim([-0.1, 1])
         # The (n_clusters+1)*10 is for inserting blank space between silhouette
         # plots of individual clusters, to demarcate them clearly.
-        ax1.set_ylim([0, len(df.drop(['incidenttype_cleaned', 'location', 'dateofincident'], axis=1)) + (n_clusters + 1) * 10])
+        ax1.set_ylim([0, len(X) + (n_clusters + 1) * 10])
 
         # Initialize the clusterer with n_clusters value and a random generator
         # seed of 10 for reproducibility.
         clusterer = KMeans(n_clusters=n_clusters, random_state=10, n_init='auto')
-        cluster_labels = clusterer.fit_predict(df.drop(['incidenttype_cleaned', 'location', 'dateofincident'], axis=1))
+        cluster_labels = clusterer.fit_predict(X_reduced)
 
         # The silhouette_score gives the average value for all the samples.
         # This gives a perspective into the density and separation of the formed
         # clusters
-        silhouette_avg = silhouette_score(df.drop(['incidenttype_cleaned', 'location', 'dateofincident'], axis=1), cluster_labels)
+        silhouette_avg = silhouette_score(X, cluster_labels)
         print(
             "For n_clusters =",
             n_clusters,
@@ -154,7 +158,7 @@ def show_silhouette_analysis(df):
         )
 
         # Compute the silhouette scores for each sample
-        sample_silhouette_values = silhouette_samples(df.drop(['incidenttype_cleaned', 'location', 'dateofincident'], axis=1), cluster_labels)
+        sample_silhouette_values = silhouette_samples(X, cluster_labels)
 
         y_lower = 10
         for i in range(n_clusters):
@@ -196,7 +200,7 @@ def show_silhouette_analysis(df):
         # 2nd Plot showing the actual clusters formed
         colors = cm.nipy_spectral(cluster_labels.astype(float) / n_clusters)
         ax2.scatter(
-            df.drop(['incidenttype_cleaned', 'location', 'dateofincident'], axis=1).iloc[:, 0].values, df.drop(['incidenttype_cleaned', 'location', 'dateofincident'], axis=1).iloc[:, 1].values, marker=".", s=30, lw=0, alpha=0.7, c=colors, edgecolor="k"
+            X_reduced[:, 0], X_reduced[:, 1], marker=".", s=30, lw=0, alpha=0.7, c=colors, edgecolor="k"
         )
 
         # Labeling the clusters
@@ -237,21 +241,9 @@ Creates the cursor and connection objects for interacting with the database.
 #     cur.execute('CREATE EXTENSION IF NOT EXISTS vector')
 #     return conn, cur
 
-def main():
-    # Setting up the database connection
-    engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{dbname}')
-
-    # conn, cur = setup_db()
-    # register_vector(conn)
-
-    df, copied_df, vectorizers = load_and_transform_data(engine)
-
-    # show_silhouette_analysis(df)
-
-    kmeans, labels = train_model(df)
-
+def analyze_clusters(X, df, labels):
     tsne = TSNE(n_components=2, random_state=42)
-    tsne_results = tsne.fit_transform(df.drop(['incidenttype_cleaned', 'location', 'dateofincident'], axis=1))
+    tsne_results = tsne.fit_transform(X)
 
     plt.figure(figsize=(10, 8))
     scatter = plt.scatter(tsne_results[:, 0], tsne_results[:, 1], c=labels, cmap='viridis')
@@ -265,10 +257,24 @@ def main():
     for cluster in range(N_CLUSTERS):
         print(f"Cluster {cluster}:")
         cluster_data = df[labels == cluster]
-        print(cluster_data['incidenttype_cleaned'].value_counts(normalize=False))
-        print(cluster_data['location'].value_counts(normalize=False))
-        print(cluster_data['dateofincident'].value_counts(normalize=False))
-        print("\n")
+        for col in FEATURES_TO_ANALYZE:
+            print(cluster_data[col].value_counts(normalize=False))
+            print("\n")
+
+def main():
+    # Setting up the database connection
+    engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{dbname}')
+
+    # conn, cur = setup_db()
+    # register_vector(conn)
+
+    df, copied_df, vectorizers = load_and_transform_data(engine)
+
+    X = df.drop(columns=FEATURES_TO_ANALYZE, axis=1)
+    silhouette_analysis(X)
+    kmeans, labels = train_model(X)
+
+    # analyze_clusters(X, df, labels)
 
 if __name__ == "__main__":
     main()

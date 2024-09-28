@@ -40,7 +40,9 @@ NOTE: vector embeddings are stored in the table using PGVector.
     - Predict incident hotspots based on recent activity
 
 - Clustering and Anomaly Detection
-    - K-Means or DBSCAN to identify patterns in incident characteristics
+    - K-Means to identify patterns in incident characteristics ✅
+        - Figure out how to use silhouette analysis to determine the number of clusters to use
+    - Try out different kinds of algorithms (DBSCAN, HDBSCAN)
 
 - Train an autoencoder or One Class SVM to identify incidents that deviate from typical patterns
     - Look for anomalies in incident frequencies
