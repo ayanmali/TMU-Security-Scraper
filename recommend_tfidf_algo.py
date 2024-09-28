@@ -53,7 +53,7 @@ def load_and_transform_data(engine):
     return result_df, copied_df, vectorizers
 
 def one_hot_encoding(df):
-    df['incidenttype_cleaned'] = df['incidenttype'].replace({": Suspect Arrested" : ""}, regex=True)
+    df['incidenttype_cleaned'] = df['incidenttype'].replace({": Suspect Arrested" : "", ": Update" : ""}, regex=True)
     df = pd.concat([df, pd.get_dummies(df['incidenttype_cleaned'], prefix='incidenttype', dtype=int)], axis=1)
     df = df.drop(columns=['incidenttype', 'incidenttype_cleaned'], axis=1)
 
