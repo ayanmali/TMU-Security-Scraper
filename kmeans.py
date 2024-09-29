@@ -28,8 +28,10 @@ from streets import secondary, landmarks
 
 # Declaring constants
 TABLE_NAME = "incidents"
+# Obtained from silhouette analysis
 N_CLUSTERS = 3
-RANGE_N_CLUSTERS = list(range(2, 7))
+# Testing a range of possible cluster counts
+RANGE_N_CLUSTERS = list(range(2, 10))
 FEATURES_TO_ANALYZE = ['incidenttype_cleaned', 'location', 'day_of_week', 'hour', 'month']
 
 """
