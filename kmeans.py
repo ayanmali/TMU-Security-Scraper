@@ -24,11 +24,12 @@ import sys
 sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers')
 from postgres_params import user, password, host, port, dbname #, db_params
 
-from streets import primary, secondary, landmarks
+from streets import secondary, landmarks
 
 # Declaring constants
 TABLE_NAME = "incidents"
 N_CLUSTERS = 3
+RANGE_N_CLUSTERS = list(range(2, 7))
 FEATURES_TO_ANALYZE = ['incidenttype_cleaned', 'location', 'day_of_week', 'hour', 'month']
 
 """
@@ -177,9 +178,7 @@ def silhouette_analysis(X):
     tsne = TSNE(n_components=2, random_state=42)
     X_reduced = tsne.fit_transform(X)
 
-    range_n_clusters = list(range(2,6))
-
-    for n_clusters in range_n_clusters:
+    for n_clusters in RANGE_N_CLUSTERS:
         # Create a subplot with 1 row and 2 columns
         fig, (ax1, ax2) = plt.subplots(1, 2)
         fig.set_size_inches(18, 7)
@@ -319,10 +318,10 @@ def main():
     X = df.drop(columns=FEATURES_TO_ANALYZE, axis=1)
 
     # Displays the silhouette plots
-    # silhouette_analysis(X)
+    silhouette_analysis(X)
 
     # Training the model
-    kmeans, labels = train_model(X)
+    dbscan, labels = train_model(X)
 
     # Analyzing characteristics of each cluster
     analyze_clusters(X, df, labels)

@@ -21,19 +21,19 @@ NOTE: vector embeddings are stored in the table using PGVector.
     1. Generate embeddings✅
     2. Store embeddings in DB with PGVector✅
     3. Query from Python script✅
-    - Use streets.py for adjusting formatting of location (one hot encoding?)
 
 - Similar Incident Recommendation System ✅
     - Features such as incident type, suspect descriptions, date and time, incident details (bag of words, tf-idf), and location data (latitude, longitude, proximity to landmarks) ✅
     - KNN, matrix factorization ✅
     - Time feature relevance - incidents closer in date to the given incident are more relevant (todo)
-    - Use streets.py for adjusting formatting of location (one hot encoding?)
+    - Use streets.py for adjusting formatting of location (one hot encoding?) ✅
 
 - Clustering
     - K-Means to identify patterns in incident characteristics ✅
         - Figure out how to use silhouette analysis to determine the number of clusters to use ✅
     - Try out different kinds of algorithms (DBSCAN, HDBSCAN)
-    - Use streets.py for adjusting formatting of location (one hot encoding?)
+    - Format the analysis better (ex. charts and graphs)
+    - Use streets.py for adjusting formatting of location (one hot encoding?) ✅
 
 - Incident Type Prediction (Classifier Model)
     - Predict incident type given location, description, time of year, day of week
