@@ -24,6 +24,8 @@ import sys
 sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers')
 from postgres_params import user, password, host, port, dbname #, db_params
 
+from streets import primary, secondary, landmarks
+
 # Declaring constants
 TABLE_NAME = "incidents"
 N_CLUSTERS = 3
@@ -39,6 +41,8 @@ def load_and_transform_data(engine):
     copied_df = df.copy(deep=True)
     df = df.drop(columns=['page', 'otherincidenttype', 'detailsembed', 'locdetailsembed', 'locdescrembed', 'locationembed', 'descrembed'], axis=1)
 
+    # For one hot encoding each street name of the intersection
+    df = process_locations(df)
     # For incident type
     df = one_hot_encoding(df)
     # For the date/time of the incident
@@ -48,7 +52,7 @@ def load_and_transform_data(engine):
     vectorizers = {}
 
     # For incident details, locations, and suspect descriptions
-    for col in ('incidentdetails', 'description', 'location'):
+    for col in ('incidentdetails', 'description'):
         tfidf_df, vectorizers[col], _ = extract_text_features(df, col=col)
         text_features[col] = scale_text_features(tfidf_df)
 
@@ -59,6 +63,39 @@ def load_and_transform_data(engine):
     result_df = pd.concat([df] + list(text_features.values()), axis=1)
 
     return result_df, copied_df, vectorizers
+
+def format_landmarks(location):
+    for key, value in landmarks.items():
+        if key in location:
+            return value
+    return location
+
+def format_street_names(location):
+    loc = location.replace(" East", "")
+    loc = loc.replace(" West", "")
+    loc = loc.replace("Laneway", "Lane")
+    loc = loc.replace(" area", "")
+    loc = loc.replace("Bond and", "Bond Street and")
+    loc = loc.replace("Wak", "Walk")
+
+    splitted = loc.split(" and ")
+    if len(splitted) == 2 and splitted[0] in secondary:
+        return splitted[1] + " and " + splitted[0]
+    return loc
+
+def process_locations(df):
+    df['location'] = df['location'].apply(format_landmarks)
+    df['location'] = df['location'].apply(format_street_names)
+
+    df[['Primary Street', 'Secondary Street']] = df['location'].str.split(' and ', expand=True)
+
+    primary_st_dummies = pd.get_dummies(df['Primary Street'], prefix='Primary_Street', dtype=int)
+    secondary_st_dummies = pd.get_dummies(df['Secondary Street'], prefix='Secondary_Street', dtype=int)
+
+    df = pd.concat([df, primary_st_dummies, secondary_st_dummies], axis=1)
+    df = df.drop(columns=['Primary Street', 'Secondary Street'], axis=1)
+
+    return df
 
 """
 One hot encodes the incident type.
@@ -282,7 +319,7 @@ def main():
     X = df.drop(columns=FEATURES_TO_ANALYZE, axis=1)
 
     # Displays the silhouette plots
-    silhouette_analysis(X)
+    # silhouette_analysis(X)
 
     # Training the model
     kmeans, labels = train_model(X)

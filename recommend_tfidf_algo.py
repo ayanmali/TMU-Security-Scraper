@@ -22,6 +22,8 @@ import sys
 sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers')
 from postgres_params import user, password, host, port, dbname #, db_params
 
+from streets import secondary, landmarks
+
 TABLE_NAME = "incidents"
 N_NEIGHBORS = 5
 
@@ -35,6 +37,8 @@ def load_and_transform_data(engine):
     copied_df = df.copy(deep=True)
     df = df.drop(columns=['page', 'otherincidenttype', 'detailsembed', 'locdetailsembed', 'locdescrembed', 'locationembed', 'descrembed'], axis=1)
 
+    df = process_locations(df)
+
     # For incident type
     df = one_hot_encoding(df)
     # For the date/time of the incident
@@ -44,17 +48,50 @@ def load_and_transform_data(engine):
     vectorizers = {}
 
     # For incident details, locations, and suspect descriptions
-    for col in ('incidentdetails', 'description', 'location'):
+    for col in ('incidentdetails', 'description'):
         tfidf_df, vectorizers[col], _ = extract_text_features(df, col=col)
         text_features[col] = scale_text_features(tfidf_df)
 
     # Dropping features that we don't need anymore
-    df = df.drop(['incidentdetails', 'description', 'location'], axis=1)
+    df = df.drop(['incidentdetails', 'description'], axis=1)
 
     # Concatenate all features
     result_df = pd.concat([df] + list(text_features.values()), axis=1)
 
     return result_df, copied_df, vectorizers
+
+def format_landmarks(location):
+    for key, value in landmarks.items():
+        if key in location:
+            return value
+    return location
+
+def format_street_names(location):
+    loc = location.replace(" East", "")
+    loc = loc.replace(" West", "")
+    loc = loc.replace("Laneway", "Lane")
+    loc = loc.replace(" area", "")
+    loc = loc.replace("Bond and", "Bond Street and")
+    loc = loc.replace("Wak", "Walk")
+
+    splitted = loc.split(" and ")
+    if len(splitted) == 2 and splitted[0] in secondary:
+        return splitted[1] + " and " + splitted[0]
+    return loc
+
+def process_locations(df):
+    df['location'] = df['location'].apply(format_landmarks)
+    df['location'] = df['location'].apply(format_street_names)
+
+    df[['Primary Street', 'Secondary Street']] = df['location'].str.split(' and ', expand=True)
+
+    primary_st_dummies = pd.get_dummies(df['Primary Street'], prefix='Primary_Street', dtype=int)
+    secondary_st_dummies = pd.get_dummies(df['Secondary Street'], prefix='Secondary_Street', dtype=int)
+
+    df = pd.concat([df, primary_st_dummies, secondary_st_dummies], axis=1)
+    df = df.drop(columns=['location', 'Primary Street', 'Secondary Street'], axis=1)
+
+    return df
 
 """
 One hot encodes the incident type.
@@ -156,15 +193,17 @@ def main():
     # Preprocessing the data
     df, copied_df, vectorizers = load_and_transform_data(engine)
 
+    print(len(df.columns))
+
     # Training the model
     knn = train_model(df, N_NEIGHBORS)
 
     # The ID in the database of the incident to check
-    id_to_check = 107
+    id_to_check = 420
     
     # Gets a list of IDs of the recommended incidents
     recommendations = get_recommendations(id_to_check, df, knn)
-    
+
     if recommendations is not None:
         print(f"Recommendations for incident {id_to_check}:")
         print(recommendations[['id']])

@@ -70,6 +70,9 @@ def add_embeddings(cur, conn, client):
         # Commiting changes to the DB
         conn.commit()
 
+"""
+Adds vector embeddings to each row of the table (i.e. each incident) based on its location and description respectively
+"""
 def add_loc_and_descr_embeddings(cur, conn, client):
     # Use sql.Identifier to properly quote the table name
     query = sql.SQL("SELECT MAX(id) FROM {}").format(sql.Identifier(TABLE_NAME))
