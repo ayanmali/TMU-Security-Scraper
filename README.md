@@ -17,15 +17,23 @@ NOTE: vector embeddings are stored in the table using PGVector.
 
 ## TODO
 - Search feature ✅
-    - Can use: OpenAI/Voyage Embeddings API, PGVector, TypeSense for search
+    - Can use: OpenAI/Voyage Embeddings API, PGVector for search
     1. Generate embeddings✅
     2. Store embeddings in DB with PGVector✅
     3. Query from Python script✅
+     - Use streets.py for adjusting formatting of location (one hot encoding?)
 
 - Similar Incident Recommendation System ✅
     - Features such as incident type, suspect descriptions, date and time, incident details (bag of words, tf-idf), and location data (latitude, longitude, proximity to landmarks) ✅
     - KNN, matrix factorization ✅
     - Time feature relevance - incidents closer in date to the given incident are more relevant(todo)
+     - Use streets.py for adjusting formatting of location (one hot encoding?)
+
+- Clustering
+    - K-Means to identify patterns in incident characteristics ✅
+        - Figure out how to use silhouette analysis to determine the number of clusters to use ✅
+    - Try out different kinds of algorithms (DBSCAN, HDBSCAN)
+    - Use streets.py for adjusting formatting of location (one hot encoding?)
 
 - Incident Type Prediction (Classifier Model)
     - Predict incident type given location, description, time of year, day of week
@@ -38,11 +46,6 @@ NOTE: vector embeddings are stored in the table using PGVector.
     - likelihood of types of incidents occuring during specific times or days
     - number of incidents expected to occur in future time periods (ARIMA, Prophet, SARIMA to account for trends and seasonality)
     - Predict incident hotspots based on recent activity
-
-- Clustering and Anomaly Detection
-    - K-Means to identify patterns in incident characteristics ✅
-        - Figure out how to use silhouette analysis to determine the number of clusters to use
-    - Try out different kinds of algorithms (DBSCAN, HDBSCAN)
 
 - Train an autoencoder or One Class SVM to identify incidents that deviate from typical patterns
     - Look for anomalies in incident frequencies

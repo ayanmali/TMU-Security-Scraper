@@ -10,28 +10,28 @@ from sklearn.cluster import KMeans
 from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_samples, silhouette_score
 
+# For visualizations
 import matplotlib.pyplot as plt
 import matplotlib.cm as cm
 
-# Can try either using TFIDFVectorizer or embeddings to see which works better
-# from openai import OpenAI
-
+# For manipulating and transforming the data
 import pandas as pd
 # For the database connection
 from sqlalchemy import create_engine
-# import psycopg2
-# from psycopg2 import sql
-# from pgvector.psycopg2 import register_vector
 
 # Database credentials
 import sys
 sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers')
 from postgres_params import user, password, host, port, dbname #, db_params
 
+# Declaring constants
 TABLE_NAME = "incidents"
 N_CLUSTERS = 3
 FEATURES_TO_ANALYZE = ['incidenttype_cleaned', 'location', 'day_of_week', 'hour', 'month']
 
+"""
+Loads and preprocesses the data for training.
+"""
 def load_and_transform_data(engine):
     # Loading the data into a DataFrame
     df = pd.read_sql(f"SELECT * FROM {TABLE_NAME} ORDER BY id", engine)
@@ -52,6 +52,7 @@ def load_and_transform_data(engine):
         tfidf_df, vectorizers[col], _ = extract_text_features(df, col=col)
         text_features[col] = scale_text_features(tfidf_df)
 
+    # Dropping features that we don't need anymore
     df = df.drop(['incidentdetails', 'description'], axis=1)
 
     # Concatenate all features
@@ -59,7 +60,11 @@ def load_and_transform_data(engine):
 
     return result_df, copied_df, vectorizers
 
+"""
+One hot encodes the incident type.
+"""
 def one_hot_encoding(df):
+    # Removing any extra unnecessary phrases from the incident type
     df['incidenttype_cleaned'] = df['incidenttype'].replace({": Suspect Arrested" : "", ": Update" : ""}, regex=True)
     df = pd.concat([df, pd.get_dummies(df['incidenttype_cleaned'], prefix='incidenttype', dtype=int)], axis=1)
     df = df.drop(columns=['incidenttype'], axis=1)
@@ -67,9 +72,10 @@ def one_hot_encoding(df):
     return df
 
 """
-Extracts the month, day of week, and hour of each incident's date.
+Extracts the month, day of week, and hour of each incident's date and one hot encodes each one.
 """
 def get_dates(df):
+    # Extracting the day of the week, month, and hour from the datetime column
     df['day_of_week'] = df['dateofincident'].dt.dayofweek
     df['month'] = df['dateofincident'].dt.month
     df['hour'] = df['dateofincident'].dt.hour
@@ -96,6 +102,7 @@ def get_dates(df):
 Extracts features from a given text column (incident details, location, or description).
 """
 def extract_text_features(df, col):
+    # Using the TF-IDF of the words for the given text feature to create a matrix that numerically represents the text data
     vectorizer = TfidfVectorizer(stop_words='english')
     matrix = vectorizer.fit_transform(df[col])
     array = matrix.toarray()
@@ -116,12 +123,19 @@ def scale_text_features(tfidf_feature_df):
     # Adding the scaled data to the original DataFrame
     return pd.DataFrame(scaled_features, columns=tfidf_feature_df.columns)
 
+"""
+Trains a K-Means Clustering model on the dataset and returns the trained model as well as the labels for each cluster.
+"""
 def train_model(X):
-    kmeans = KMeans(n_clusters=N_CLUSTERS, random_state=42)
+    random_state = 42
+    kmeans = KMeans(n_clusters=N_CLUSTERS, random_state=random_state)
     kmeans.fit(X)
     labels = kmeans.labels_
     return kmeans, labels
 
+"""
+For a given number of clusters n in a particular range, a silhouette plot is created for each of the n clusters as well as a visualization of the clustered data.
+"""
 def silhouette_analysis(X):
     tsne = TSNE(n_components=2, random_state=42)
     X_reduced = tsne.fit_transform(X)
@@ -233,18 +247,14 @@ def silhouette_analysis(X):
     plt.show()
 
 """
-Creates the cursor and connection objects for interacting with the database.
+Creates a scatter plot showing the clustered data points and provides a breakdown of the data in each cluster.
 """
-# def setup_db():
-#     conn = psycopg2.connect(**db_params)
-#     cur = conn.cursor()
-#     cur.execute('CREATE EXTENSION IF NOT EXISTS vector')
-#     return conn, cur
-
 def analyze_clusters(X, df, labels):
+    # Reduces dimensionality of the dataset down to just two features so the data and the clusters can be easily visualized
     tsne = TSNE(n_components=2, random_state=42)
     tsne_results = tsne.fit_transform(X)
 
+    # Creates a scatter plot of the two features of the new reduced dataset
     plt.figure(figsize=(10, 8))
     scatter = plt.scatter(tsne_results[:, 0], tsne_results[:, 1], c=labels, cmap='viridis')
     plt.colorbar(scatter)
@@ -253,7 +263,7 @@ def analyze_clusters(X, df, labels):
     plt.ylabel('t-SNE feature 2')
     plt.show()
 
-    # Analyze clusters
+    # Show a breakdown of the number of different values for each feature in each cluster
     for cluster in range(N_CLUSTERS):
         print(f"Cluster {cluster}:")
         cluster_data = df[labels == cluster]
@@ -265,16 +275,20 @@ def main():
     # Setting up the database connection
     engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{dbname}')
 
-    # conn, cur = setup_db()
-    # register_vector(conn)
-
+    # Preprocessing the data
     df, copied_df, vectorizers = load_and_transform_data(engine)
 
+    # When preprocessing the data, certain columns are left out so that they can be indexed again for analysis; when using the DataFrame for clustering, these features are to be dropped as they are not in a usable format
     X = df.drop(columns=FEATURES_TO_ANALYZE, axis=1)
+
+    # Displays the silhouette plots
     silhouette_analysis(X)
+
+    # Training the model
     kmeans, labels = train_model(X)
 
-    # analyze_clusters(X, df, labels)
+    # Analyzing characteristics of each cluster
+    analyze_clusters(X, df, labels)
 
 if __name__ == "__main__":
     main()

@@ -25,6 +25,9 @@ from postgres_params import user, password, host, port, dbname #, db_params
 TABLE_NAME = "incidents"
 N_NEIGHBORS = 5
 
+"""
+Loads and preprocesses the data for training.
+"""
 def load_and_transform_data(engine):
     # Loading the data into a DataFrame
     df = pd.read_sql(f"SELECT * FROM {TABLE_NAME} ORDER BY id", engine)
@@ -45,6 +48,7 @@ def load_and_transform_data(engine):
         tfidf_df, vectorizers[col], _ = extract_text_features(df, col=col)
         text_features[col] = scale_text_features(tfidf_df)
 
+    # Dropping features that we don't need anymore
     df = df.drop(['incidentdetails', 'description', 'location'], axis=1)
 
     # Concatenate all features
@@ -52,7 +56,11 @@ def load_and_transform_data(engine):
 
     return result_df, copied_df, vectorizers
 
+"""
+One hot encodes the incident type.
+"""
 def one_hot_encoding(df):
+    # Removing any extra unnecessary phrases from the incident type
     df['incidenttype_cleaned'] = df['incidenttype'].replace({": Suspect Arrested" : "", ": Update" : ""}, regex=True)
     df = pd.concat([df, pd.get_dummies(df['incidenttype_cleaned'], prefix='incidenttype', dtype=int)], axis=1)
     df = df.drop(columns=['incidenttype', 'incidenttype_cleaned'], axis=1)
@@ -63,6 +71,7 @@ def one_hot_encoding(df):
 Extracts the month, day of week, and hour of each incident's date.
 """
 def get_dates(df):
+    # Extracting the day of the week, month, and hour from the datetime column
     df['day_of_week'] = df['dateofincident'].dt.dayofweek
     df['month'] = df['dateofincident'].dt.month
     df['hour'] = df['dateofincident'].dt.hour
@@ -89,6 +98,7 @@ def get_dates(df):
 Extracts features from a given text column (incident details, location, or description).
 """
 def extract_text_features(df, col):
+    # Using the TF-IDF of the words for the given text feature to create a matrix that numerically represents the text data
     vectorizer = TfidfVectorizer(stop_words='english')
     matrix = vectorizer.fit_transform(df[col])
     array = matrix.toarray()
@@ -109,6 +119,9 @@ def scale_text_features(tfidf_feature_df):
     # Adding the scaled data to the original DataFrame
     return pd.DataFrame(scaled_features, columns=tfidf_feature_df.columns)
 
+"""
+Suggests potentially related incidents given an incident ID (from the database).
+"""
 def get_recommendations(id, df, model, n_recommendations=5):
     # Find the index of the given id in the DataFrame
     try:
@@ -128,37 +141,30 @@ def get_recommendations(id, df, model, n_recommendations=5):
 
     return similar_incidents
 
+"""
+Trains a K-Means Clustering model on the dataset and returns the trained model as well as the labels for each cluster.
+"""
 def train_model(df, n_neighbors):
     knn = NearestNeighbors(n_neighbors=n_neighbors, metric='cosine')
     knn.fit(df)
     return knn
 
-"""
-Creates the cursor and connection objects for interacting with the database.
-"""
-# def setup_db():
-#     conn = psycopg2.connect(**db_params)
-#     cur = conn.cursor()
-#     cur.execute('CREATE EXTENSION IF NOT EXISTS vector')
-#     return conn, cur
-
 def main():
     # Setting up the database connection
     engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{dbname}')
 
-    # conn, cur = setup_db()
-    # register_vector(conn)
-
+    # Preprocessing the data
     df, copied_df, vectorizers = load_and_transform_data(engine)
 
-    # df.to_csv("recommendations.csv")
-    # print(df['dateofincident'])
-    
-    # print(df.isna().any(axis=1))
+    # Training the model
     knn = train_model(df, N_NEIGHBORS)
-    id_to_check = 107
-    recommendations = get_recommendations(id_to_check, df, knn)
 
+    # The ID in the database of the incident to check
+    id_to_check = 107
+    
+    # Gets a list of IDs of the recommended incidents
+    recommendations = get_recommendations(id_to_check, df, knn)
+    
     if recommendations is not None:
         print(f"Recommendations for incident {id_to_check}:")
         print(recommendations[['id']])
