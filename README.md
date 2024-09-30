@@ -19,6 +19,8 @@ The second algorithm uses the incident date and type like before, but this algor
 NOTE: vector embeddings are stored in the table using PGVector.
 
 ## TODO
+- Replace "Toronto Police News Release" with an appropriate keyword based on incident details
+
 - Search feature ✅
     - Can use: OpenAI/Voyage Embeddings API, PGVector for search
     1. Generate embeddings✅
