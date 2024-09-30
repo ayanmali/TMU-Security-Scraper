@@ -98,7 +98,7 @@ def format_landmarks(location):
     for key, value in landmarks.items():
         if key in location:
             return value
-    return location
+    return location.strip()
 
 """
 Remove unnecessary text from location names, and format them so that the street that
@@ -111,10 +111,16 @@ def format_street_names(location):
     loc = loc.replace(" area", "")
     loc = loc.replace("Bond and", "Bond Street and")
     loc = loc.replace("Wak", "Walk")
+    loc = loc.replace("O’Keefe Lane", "O'Keefe Lane")
+    loc = loc.replace("Gold", "Gould")
+    loc = loc.replace("the", "")
+    loc = loc.strip()
 
     splitted = loc.split(" and ")
-    if len(splitted) == 2 and splitted[0] in secondary:
-        return splitted[1] + " and " + splitted[0]
+    if len(splitted) == 2:
+        if splitted[0].strip() in secondary:
+            return splitted[1].strip() + " and " + splitted[0].strip()
+        return splitted[0].strip() + " and " + splitted[1].strip()
     return loc
 
 """
@@ -155,21 +161,21 @@ def get_dates(df):
     df['hour'] = df['dateofincident'].dt.hour
 
     # One hot encoding the new date/time columns
-    day_dummies = pd.get_dummies(df['day_of_week'], prefix='day', dtype=int)
-    month_dummies = pd.get_dummies(df['month'], prefix='month', dtype=int)
-    hour_dummies = pd.get_dummies(df['hour'], prefix='hour', dtype=int)
+    # day_dummies = pd.get_dummies(df['day_of_week'], prefix='day', dtype=int)
+    # month_dummies = pd.get_dummies(df['month'], prefix='month', dtype=int)
+    # hour_dummies = pd.get_dummies(df['hour'], prefix='hour', dtype=int)
 
-    # Renaming the columns to actual day names
-    day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    day_dummies.columns = [f'is_{day}' for day in day_names]
-    month_names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-    month_dummies.columns = [f'is_{month}' for month in month_names]
-    hour_names = [str(x) for x in list(range(24))]
-    hour_dummies.columns = [f'is_{hour}' for hour in hour_names]
+    # # Renaming the columns to actual day names
+    # day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    # day_dummies.columns = [f'is_{day}' for day in day_names]
+    # month_names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+    # month_dummies.columns = [f'is_{month}' for month in month_names]
+    # hour_names = [str(x) for x in list(range(24))]
+    # hour_dummies.columns = [f'is_{hour}' for hour in hour_names]
 
-    # Adding the new columns to the original DataFrame
-    df = pd.concat([df, day_dummies, month_dummies, hour_dummies], axis=1)
-    df = df.drop(columns=['dateofincident', 'dateposted', 'datereported', 'day_of_week', 'month', 'hour'])
+    # # Adding the new columns to the original DataFrame
+    # df = pd.concat([df, day_dummies, month_dummies, hour_dummies], axis=1)
+    df = df.drop(columns=['dateofincident', 'dateposted', 'datereported'])
     return df
 
 """
@@ -220,7 +226,7 @@ def get_recommendations(id, df, model, n_recommendations=5):
     return similar_incidents
 
 """
-Trains a K-Means Clustering model on the dataset and returns the trained model as well as the labels for each cluster.
+Trains a K-nearest neighbors model on the dataset and returns the trained model.
 """
 def train_model(df, n_neighbors):
     knn = NearestNeighbors(n_neighbors=n_neighbors, metric='cosine')

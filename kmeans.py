@@ -29,8 +29,8 @@ TABLE_NAME = "incidents"
 # Obtained from silhouette analysis
 N_CLUSTERS = 3
 # Testing a range of possible cluster counts
-RANGE_N_CLUSTERS = list(range(2, 10))
-FEATURES_TO_ANALYZE = ['id', 'incidenttype_cleaned', 'location', 'day_of_week', 'hour', 'month']
+RANGE_N_CLUSTERS = list(range(9, 20))
+FEATURES_TO_ANALYZE = ['id', 'incidenttype_cleaned', 'location']
 
 """
 Loads and preprocesses the data for training.
@@ -46,26 +46,30 @@ def load_and_transform_data(engine):
     df = replace_other_incident_type(df)
     # For one hot encoding each street name of the intersection
     df = process_locations(df)
-    # For incident type
+    # For one hot encoding incident types
     df = process_types(df)
     # For the date/time of the incident
     df = get_dates(df)
 
-    text_features = {}
+    # text_features = {}
+    # vectorizers = {}
+
+    # # For incident details, locations, and suspect descriptions
+    # for col in ('incidentdetails', 'description'):
+    #     tfidf_df, vectorizers[col], _ = extract_text_features(df, col=col)
+    #     text_features[col] = scale_text_features(tfidf_df)
+
+    # # Dropping features that we don't need anymore
+    # df = df.drop(['incidentdetails', 'description'], axis=1)
+
+    # # Concatenate all features
+    # result_df = pd.concat([df] + list(text_features.values()), axis=1)
+
+    # return result_df, copied_df, vectorizers
+
     vectorizers = {}
-
-    # For incident details, locations, and suspect descriptions
-    for col in ('incidentdetails', 'description'):
-        tfidf_df, vectorizers[col], _ = extract_text_features(df, col=col)
-        text_features[col] = scale_text_features(tfidf_df)
-
-    # Dropping features that we don't need anymore
     df = df.drop(['incidentdetails', 'description'], axis=1)
-
-    # Concatenate all features
-    result_df = pd.concat([df] + list(text_features.values()), axis=1)
-
-    return result_df, copied_df, vectorizers
+    return df, copied_df, vectorizers
 
 """
 Uses the keyword dictionaries to map any rows with "Other" as their incident type to an appropriate keyword (i.e. mapping it to a new category).
@@ -100,7 +104,7 @@ def format_landmarks(location):
     for key, value in landmarks.items():
         if key in location:
             return value
-    return location
+    return location.strip()
 
 """
 Remove unnecessary text from location names, and format them so that the street that
@@ -113,10 +117,16 @@ def format_street_names(location):
     loc = loc.replace(" area", "")
     loc = loc.replace("Bond and", "Bond Street and")
     loc = loc.replace("Wak", "Walk")
+    loc = loc.replace("O’Keefe Lane", "O'Keefe Lane")
+    loc = loc.replace("Gold", "Gould")
+    loc = loc.replace("the", "")
+    loc = loc.strip()
 
     splitted = loc.split(" and ")
-    if len(splitted) == 2 and splitted[0] in secondary:
-        return splitted[1] + " and " + splitted[0]
+    if len(splitted) == 2:
+        if splitted[0].strip() in secondary:
+            return splitted[1].strip() + " and " + splitted[0].strip()
+        return splitted[0].strip() + " and " + splitted[1].strip()
     return loc
 
 """
@@ -157,20 +167,20 @@ def get_dates(df):
     df['hour'] = df['dateofincident'].dt.hour
 
     # One hot encoding the new date/time columns
-    day_dummies = pd.get_dummies(df['day_of_week'], prefix='day', dtype=int)
-    month_dummies = pd.get_dummies(df['month'], prefix='month', dtype=int)
-    hour_dummies = pd.get_dummies(df['hour'], prefix='hour', dtype=int)
+    # day_dummies = pd.get_dummies(df['day_of_week'], prefix='day', dtype=int)
+    # month_dummies = pd.get_dummies(df['month'], prefix='month', dtype=int)
+    # hour_dummies = pd.get_dummies(df['hour'], prefix='hour', dtype=int)
 
-    # Renaming the columns to actual day names
-    day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    day_dummies.columns = [f'is_{day}' for day in day_names]
-    month_names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-    month_dummies.columns = [f'is_{month}' for month in month_names]
-    hour_names = [str(x) for x in list(range(24))]
-    hour_dummies.columns = [f'is_{hour}' for hour in hour_names]
+    # # Renaming the columns to actual day names
+    # day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    # day_dummies.columns = [f'is_{day}' for day in day_names]
+    # month_names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+    # month_dummies.columns = [f'is_{month}' for month in month_names]
+    # hour_names = [str(x) for x in list(range(24))]
+    # hour_dummies.columns = [f'is_{hour}' for hour in hour_names]
 
-    # Adding the new columns to the original DataFrame
-    df = pd.concat([df, day_dummies, month_dummies, hour_dummies], axis=1)
+    # # Adding the new columns to the original DataFrame
+    # df = pd.concat([df, day_dummies, month_dummies, hour_dummies], axis=1)
     df = df.drop(columns=['dateposted', 'datereported', 'dateofincident'])
     return df
 
@@ -200,7 +210,7 @@ def scale_text_features(tfidf_feature_df):
     return pd.DataFrame(scaled_features, columns=tfidf_feature_df.columns)
 
 """
-Trains a K-Means Clustering model on the dataset and returns the trained model as well as the labels for each cluster.
+Trains a K-means clustering model on the dataset and returns the trained model as well as the labels for each cluster.
 """
 def train_model(X):
     random_state = 42
@@ -344,6 +354,12 @@ def analyze_clusters(X, df, labels):
         for col in FEATURES_TO_ANALYZE:
             print(cluster_data[col].value_counts(normalize=False))
             print("\n")
+        print(cluster_data['day_of_week'].value_counts(normalize=False))
+        print("\n")
+        print(cluster_data['month'].value_counts(normalize=False))
+        print("\n")
+        print(cluster_data['hour'].value_counts(normalize=False))
+        print("\n")
 
 def main():
     # Setting up the database connection
@@ -355,11 +371,14 @@ def main():
     # When preprocessing the data, certain columns are left out so that they can be indexed again for analysis; when using the DataFrame for clustering, these features are to be dropped as they are not in a usable format
     X = df.drop(columns=FEATURES_TO_ANALYZE, axis=1)
 
+    # for col in X.columns:
+    #     print(col)
+
     # Displays the silhouette plots
     silhouette_analysis(X)
 
     # Training the model
-    dbscan, labels = train_model(X)
+    kmeans, labels = train_model(X)
 
     # Analyzing characteristics of each cluster
     analyze_clusters(X, df, labels)

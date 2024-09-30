@@ -49,21 +49,25 @@ def load_and_transform_data(engine):
     # For the date/time of the incident
     df = get_dates(df)
 
-    text_features = {}
+    # text_features = {}
+    # vectorizers = {}
+
+    # # For incident details, locations, and suspect descriptions
+    # for col in ('incidentdetails', 'description'):
+    #     tfidf_df, vectorizers[col], _ = extract_text_features(df, col=col)
+    #     text_features[col] = scale_text_features(tfidf_df)
+
+    # # Dropping features that we don't need anymore
+    # df = df.drop(['incidentdetails', 'description'], axis=1)
+
+    # # Concatenate all features
+    # result_df = pd.concat([df] + list(text_features.values()), axis=1)
+
+    # return result_df, copied_df, vectorizers
+
     vectorizers = {}
-
-    # For incident details, locations, and suspect descriptions
-    for col in ('incidentdetails', 'description'):
-        tfidf_df, vectorizers[col], _ = extract_text_features(df, col=col)
-        text_features[col] = scale_text_features(tfidf_df)
-
-    # Dropping features that we don't need anymore
     df = df.drop(['incidentdetails', 'description'], axis=1)
-
-    # Concatenate all features
-    result_df = pd.concat([df] + list(text_features.values()), axis=1)
-
-    return result_df, copied_df, vectorizers
+    return df, copied_df, vectorizers
 
 def format_landmarks(location):
     for key, value in landmarks.items():
@@ -118,21 +122,21 @@ def get_dates(df):
     df['month'] = df['dateofincident'].dt.month
     df['hour'] = df['dateofincident'].dt.hour
 
-    # One hot encoding the new date/time columns
-    day_dummies = pd.get_dummies(df['day_of_week'], prefix='day', dtype=int)
-    month_dummies = pd.get_dummies(df['month'], prefix='month', dtype=int)
-    hour_dummies = pd.get_dummies(df['hour'], prefix='hour', dtype=int)
+    # # One hot encoding the new date/time columns
+    # day_dummies = pd.get_dummies(df['day_of_week'], prefix='day', dtype=int)
+    # month_dummies = pd.get_dummies(df['month'], prefix='month', dtype=int)
+    # hour_dummies = pd.get_dummies(df['hour'], prefix='hour', dtype=int)
 
-    # Renaming the columns to actual day names
-    day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
-    day_dummies.columns = [f'is_{day}' for day in day_names]
-    month_names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
-    month_dummies.columns = [f'is_{month}' for month in month_names]
-    hour_names = [str(x) for x in list(range(24))]
-    hour_dummies.columns = [f'is_{hour}' for hour in hour_names]
+    # # Renaming the columns to actual day names
+    # day_names = ['Monday', 'Tuesday', 'Wednesday', 'Thursday', 'Friday', 'Saturday', 'Sunday']
+    # day_dummies.columns = [f'is_{day}' for day in day_names]
+    # month_names = ['January', 'February', 'March', 'April', 'May', 'June', 'July', 'August', 'September', 'October', 'November', 'December']
+    # month_dummies.columns = [f'is_{month}' for month in month_names]
+    # hour_names = [str(x) for x in list(range(24))]
+    # hour_dummies.columns = [f'is_{hour}' for hour in hour_names]
 
-    # Adding the new columns to the original DataFrame
-    df = pd.concat([df, day_dummies, month_dummies, hour_dummies], axis=1)
+    # # Adding the new columns to the original DataFrame
+    # df = pd.concat([df, day_dummies, month_dummies, hour_dummies], axis=1)
     df = df.drop(columns=['dateposted', 'datereported', 'dateofincident'])
     return df
 
@@ -165,7 +169,7 @@ def scale_text_features(tfidf_feature_df):
 Trains a DBSCAN clustering model on the dataset and returns the trained model as well as the labels for each cluster.
 """
 def train_model(X):
-    dbscan = DBSCAN(eps=10, min_samples=2, metric='euclidean')
+    dbscan = DBSCAN(eps=0.2, min_samples=5, metric='euclidean')
     dbscan.fit(X)
     labels = dbscan.labels_
     return dbscan, labels
@@ -317,7 +321,7 @@ def main():
     X = df.drop(columns=FEATURES_TO_ANALYZE, axis=1)
 
     # Training the model
-    kmeans, labels = train_model(X)
+    dbscan, labels = train_model(X)
     # print(labels)
 
     # Analyzing characteristics of each cluster
