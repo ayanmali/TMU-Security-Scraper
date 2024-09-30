@@ -35,5 +35,6 @@ landmarks = {
              'HOEM' : "Jarvis Street and NA",
              'Dundas Station' : "Yonge Street and Dundas Street",
              'Yonge Street between College Street and Dundas Street' : "Yonge Street and College Street",
-             'Ram in the Rye' : "Church Street and Gould Street"
+             'Ram in the Rye' : "Church Street and Gould Street",
+             'Image Centre' : "Victoria Street and Gould Street",
              }

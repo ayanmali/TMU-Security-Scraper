@@ -40,7 +40,7 @@ def load_and_transform_data(engine):
     df = pd.read_sql(f"SELECT * FROM {TABLE_NAME} ORDER BY id", engine)
     # Storing a duplicate of the DataFrame for reference when recommendations are suggested
     copied_df = df.copy(deep=True)
-    df = df.drop(columns=['page', 'otherincidenttype', 'detailsembed', 'locdetailsembed', 'locdescrembed', 'locationembed', 'descrembed'], axis=1)
+    df = df.drop(columns=['id', 'page', 'otherincidenttype', 'detailsembed', 'locdetailsembed', 'locdescrembed', 'locationembed', 'descrembed'], axis=1)
 
     # For one hot encoding each street name of the intersection
     df = process_locations(df)
@@ -318,7 +318,7 @@ def main():
 
     # Training the model
     kmeans, labels = train_model(X)
-    print(labels)
+    # print(labels)
 
     # Analyzing characteristics of each cluster
     analyze_clusters(X, df, labels)

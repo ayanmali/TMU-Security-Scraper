@@ -28,10 +28,11 @@ LOCATION_EMBED_COLUMN_NAME = "locationembed"
 DESCRIPTION_EMBED_COLUMN_NAME = "descrembed"
 LOCDETAILS_EMBED_COLUMN_NAME = "locdetailsembed"
 LOCDESCR_EMBED_COLUMN_NAME = "locdescrembed"
+ALL_EMBED_COLUMN_NAME = "allembed"
 TABLE_NAME = "incidents"
 EMBED_MODEL = "text-embedding-3-small"
 N_DIMS = 256 + 128
-# COMBINED_N_DIMS = N_DIMS + 128
+# N_DIMS_ALL = 256 + 256 + 128
 
 """
 Adds vector embeddings to each row of the table (i.e. each incident) based on its incident details and location + incident details, respectively

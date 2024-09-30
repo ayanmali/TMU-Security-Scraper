@@ -23,6 +23,7 @@ sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrap
 from postgres_params import user, password, host, port, dbname #, db_params
 
 from streets import secondary, landmarks
+from details_keywords import primary_keywords, secondary_keywords
 
 TABLE_NAME = "incidents"
 N_NEIGHBORS = 5
@@ -37,10 +38,14 @@ def load_and_transform_data(engine):
     copied_df = df.copy(deep=True)
     df = df.drop(columns=['page', 'otherincidenttype', 'detailsembed', 'locdetailsembed', 'locdescrembed', 'locationembed', 'descrembed'], axis=1)
 
+    # For specifying the exact incident type for any incident type that is "Other"
+    df = replace_other_incident_type(df)
+
+    # For one hot encoding the locations
     df = process_locations(df)
 
     # For incident type
-    df = one_hot_encoding(df)
+    df = process_type(df)
     # For the date/time of the incident
     df = get_dates(df)
 
@@ -60,12 +65,45 @@ def load_and_transform_data(engine):
 
     return result_df, copied_df, vectorizers
 
+"""
+Uses the keyword dictionaries to map any rows with "Other" as their incident type to an appropriate keyword (i.e. mapping it to a new category).
+"""
+def format_type(row, primary_keywords, secondary_keywords):
+    if row['incidenttype'] == "Other":
+        details_lower = row['incidentdetails'].lower()
+
+        for key, value in primary_keywords.items():
+            if key in details_lower:
+                return value
+            
+        for key, value in secondary_keywords.items():
+            if key in details_lower:
+                return value
+
+        return "Suspicious Behaviour"
+
+    return row['incidenttype']
+
+"""
+Replaces any values with an incident type of "Other" with an appropriate replacement based on the keywords of the incident details.
+"""
+def replace_other_incident_type(df):
+    df['incidenttype'] = df.apply(lambda row: format_type(row, primary_keywords, secondary_keywords), axis=1)
+    return df
+
+"""
+Maps any location that is listed as a landmark to the closest street intersection.
+"""
 def format_landmarks(location):
     for key, value in landmarks.items():
         if key in location:
             return value
     return location
 
+"""
+Remove unnecessary text from location names, and format them so that the street that
+runs west to east always comes first, and the street that runs north to south always comes second.
+"""
 def format_street_names(location):
     loc = location.replace(" East", "")
     loc = loc.replace(" West", "")
@@ -79,6 +117,9 @@ def format_street_names(location):
         return splitted[1] + " and " + splitted[0]
     return loc
 
+"""
+Formatting and one hot encoding the locations.
+"""
 def process_locations(df):
     df['location'] = df['location'].apply(format_landmarks)
     df['location'] = df['location'].apply(format_street_names)
@@ -96,7 +137,7 @@ def process_locations(df):
 """
 One hot encodes the incident type.
 """
-def one_hot_encoding(df):
+def process_type(df):
     # Removing any extra unnecessary phrases from the incident type
     df['incidenttype_cleaned'] = df['incidenttype'].replace({": Suspect Arrested" : "", ": Update" : ""}, regex=True)
     df = pd.concat([df, pd.get_dummies(df['incidenttype_cleaned'], prefix='incidenttype', dtype=int)], axis=1)
@@ -193,8 +234,6 @@ def main():
     # Preprocessing the data
     df, copied_df, vectorizers = load_and_transform_data(engine)
 
-    print(len(df.columns))
-
     # Training the model
     knn = train_model(df, N_NEIGHBORS)
 
@@ -205,7 +244,7 @@ def main():
     recommendations = get_recommendations(id_to_check, df, knn)
 
     if recommendations is not None:
-        print(f"Recommendations for incident {id_to_check}:")
+        print(f"Recommendations for incident with ID {id_to_check}:")
         print(recommendations[['id']])
 
 if __name__ == "__main__":

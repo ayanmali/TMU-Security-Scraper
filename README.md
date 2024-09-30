@@ -60,5 +60,7 @@ NOTE: vector embeddings are stored in the table using PGVector.
     - Recommendation Algorithm to suggest patrol routes/areas to focus on based on historical data
 
 - Topic Modelling Using Latent Dirichlet Allocation to find underlying themes in incident descriptions or suspect descriptions
+    - Ex. specific kinds of behaviours by suspects (yelling, slapping, pushing)
+    - More specific incident types - ex. ordinary assault vs assault with a knife vs assault with a firearm
 
 """
