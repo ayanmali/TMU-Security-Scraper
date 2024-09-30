@@ -26,10 +26,10 @@ from details_keywords import primary_keywords, secondary_keywords
 
 # Declaring constants
 TABLE_NAME = "incidents"
-# Obtained from silhouette analysis
+# Obtained from the elbow plot
 N_CLUSTERS = 3
 # Testing a range of possible cluster counts
-RANGE_N_CLUSTERS = list(range(9, 20))
+RANGE_N_CLUSTERS = range(2, 7)
 FEATURES_TO_ANALYZE = ['id', 'incidenttype_cleaned', 'location']
 
 """
@@ -220,6 +220,31 @@ def train_model(X):
     return kmeans, labels
 
 """
+Creates a plot showing the change in variation across a given range of K values to use for clustering.
+"""
+def elbow_plot(X):
+    # Reducing the data down to two dimensions so it can be visualized and clustered more easily
+    tsne = TSNE(n_components=2, random_state=42)
+    X_reduced = tsne.fit_transform(X)
+
+    # The y-values for the plot
+    inertias = []
+
+    # Obtaining the inertia value for each possible K value
+    for n_clusters in RANGE_N_CLUSTERS:
+        kmeans = KMeans(n_clusters=n_clusters, random_state=42)
+        kmeans.fit(X_reduced)
+        inertias.append(kmeans.inertia_)
+
+    # Plot the elbow curve
+    plt.figure(figsize=(10, 6))
+    plt.plot(RANGE_N_CLUSTERS, inertias, 'bo-')
+    plt.xlabel('Number of Clusters (K)')
+    plt.ylabel('Inertia')
+    plt.title('Elbow Method for Optimal K')
+    plt.show()
+
+"""
 For a given number of clusters n in a particular range, a silhouette plot is created for each of the n clusters as well as a visualization of the clustered data.
 """
 def silhouette_analysis(X):
@@ -371,11 +396,11 @@ def main():
     # When preprocessing the data, certain columns are left out so that they can be indexed again for analysis; when using the DataFrame for clustering, these features are to be dropped as they are not in a usable format
     X = df.drop(columns=FEATURES_TO_ANALYZE, axis=1)
 
-    # for col in X.columns:
-    #     print(col)
-
     # Displays the silhouette plots
-    silhouette_analysis(X)
+    # silhouette_analysis(X)
+
+    # Using the elbow method to find the point where the variation drops off the most (the "elbow" of the plot)
+    elbow_plot(X)
 
     # Training the model
     kmeans, labels = train_model(X)
