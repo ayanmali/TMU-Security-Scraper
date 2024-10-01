@@ -19,7 +19,7 @@ The second algorithm uses the incident date and type like before, but this algor
 NOTE: vector embeddings are stored in the table using PGVector.
 
 ## TODO
-- Replace "Toronto Police News Release" with an appropriate keyword based on incident details
+- Replace "Toronto Police News Release" with an appropriate keyword based on incident details ✅
 
 - Search feature ✅
     - Can use: OpenAI/Voyage Embeddings API, PGVector for search
@@ -29,15 +29,17 @@ NOTE: vector embeddings are stored in the table using PGVector.
 
 - Similar Incident Recommendation System ✅
     - Features such as incident type, suspect descriptions, date and time, incident details (bag of words, tf-idf), and location data (latitude, longitude, proximity to landmarks) ✅
-    - Matrix factorization ⭕
+    - Matrix factorization, adding in some kind of "investigator feedback" (explicit or implicit) to further drive recommendations ⭕
     - Time feature relevance - incidents closer in date to the given incident are more relevant ⭕
     - Use streets.py for adjusting formatting of location (one hot encoding?) ✅
 
 - Clustering
     - K-Means to identify patterns in incident characteristics ✅
         - Figure out how to use silhouette analysis to determine the number of clusters to use ✅
+        - Apply the elbow method to find the optimal K value ✅
     - Try out different kinds of algorithms (DBSCAN, HDBSCAN) ✅
     - Format the analysis better (ex. charts and graphs) ⭕
+        - identify areas with high concentrations of incidents/high risk areas
     - Use streets.py for adjusting formatting of location (one hot encoding?) ✅
 
 - Incident Type Prediction (Classifier Model) ⭕
@@ -49,7 +51,7 @@ NOTE: vector embeddings are stored in the table using PGVector.
 - Time Series Forecasting
     - likelihood of number of incidents occurring during specific times or days
     - likelihood of types of incidents occuring during specific times or days
-    - number of incidents expected to occur in future time periods (ARIMA, Prophet, SARIMA to account for trends and seasonality)
+    - number of incidents expected to occur in future time periods (ARIMA, Prophet, SARIMA, TimesFM to account for trends and seasonality)
     - Predict incident hotspots based on recent activity
 
 - Train an autoencoder or One Class SVM to identify incidents that deviate from typical patterns
