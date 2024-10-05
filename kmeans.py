@@ -2,7 +2,7 @@ import numpy as np
 
 # For converting text features into vectors
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.preprocessing import StandardScaler 
+from sklearn.preprocessing import StandardScaler, scale
 from sklearn.cluster import KMeans
 from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_samples, silhouette_score
@@ -26,11 +26,11 @@ from details_keywords import primary_keywords, secondary_keywords
 
 # Declaring constants
 TABLE_NAME = "incidents"
-# Obtained from the elbow plot
+# Obtained from silhouette analysis and the elbow plot
 N_CLUSTERS = 3
 # Testing a range of possible cluster counts
-RANGE_N_CLUSTERS = range(2, 7)
-FEATURES_TO_ANALYZE = ['id', 'incidenttype_cleaned', 'location']
+RANGE_N_CLUSTERS = range(2, 21)
+# FEATURES_TO_ANALYZE = ['id', 'incidenttype_cleaned', 'location']
 
 """
 Loads and preprocesses the data for training.
@@ -40,6 +40,7 @@ def load_and_transform_data(engine):
     df = pd.read_sql(f"SELECT * FROM {TABLE_NAME} ORDER BY id", engine)
     # Storing a duplicate of the DataFrame for reference when recommendations are suggested
     copied_df = df.copy(deep=True)
+    # Dropping unneccessary columns
     df = df.drop(columns=['page', 'otherincidenttype', 'detailsembed', 'locdetailsembed', 'locdescrembed', 'locationembed', 'descrembed'], axis=1)
 
     # For specifying the exact incident type for any incident type that is "Other"
@@ -51,6 +52,8 @@ def load_and_transform_data(engine):
     # For the date/time of the incident
     df = get_dates(df)
 
+    # Dropping text columns since they are not needed for clustering
+    # df = df.drop(['incidentdetails', 'description'], axis=1)
     # text_features = {}
     # vectorizers = {}
 
@@ -67,9 +70,9 @@ def load_and_transform_data(engine):
 
     # return result_df, copied_df, vectorizers
 
-    vectorizers = {}
-    df = df.drop(['incidentdetails', 'description'], axis=1)
-    return df, copied_df, vectorizers
+    # vectorizers = {}
+    
+    return df, copied_df
 
 """
 Uses the keyword dictionaries to map any rows with "Other" as their incident type to an appropriate keyword (i.e. mapping it to a new category).
@@ -257,21 +260,17 @@ def silhouette_analysis(X):
         fig.set_size_inches(18, 7)
 
         # The 1st subplot is the silhouette plot
-        # The silhouette coefficient can range from -1, 1 but in this example all
-        # lie within [-0.1, 1]
+        # The silhouette coefficient can range from -1, 1 but in this example all lie within [-0.1, 1]
         ax1.set_xlim([-0.1, 1])
-        # The (n_clusters+1)*10 is for inserting blank space between silhouette
-        # plots of individual clusters, to demarcate them clearly.
+        # The (n_clusters+1)*10 is for inserting blank space between silhouette plots of individual clusters, to demarcate them clearly.
         ax1.set_ylim([0, len(X) + (n_clusters + 1) * 10])
 
-        # Initialize the clusterer with n_clusters value and a random generator
-        # seed of 10 for reproducibility.
+        # Initialize the clusterer with n_clusters value and a random generator seed of 10 for reproducibility.
         clusterer = KMeans(n_clusters=n_clusters, random_state=10, n_init='auto')
         cluster_labels = clusterer.fit_predict(X_reduced)
 
         # The silhouette_score gives the average value for all the samples.
-        # This gives a perspective into the density and separation of the formed
-        # clusters
+        # This gives a perspective into the density and separation of the formed clusters
         silhouette_avg = silhouette_score(X, cluster_labels)
         print(
             "For n_clusters =",
@@ -285,8 +284,7 @@ def silhouette_analysis(X):
 
         y_lower = 10
         for i in range(n_clusters):
-            # Aggregate the silhouette scores for samples belonging to
-            # cluster i, and sort them
+            # Aggregate the silhouette scores for samples belonging to cluster i, and sort them
             ith_cluster_silhouette_values = sample_silhouette_values[cluster_labels == i]
 
             ith_cluster_silhouette_values.sort()
@@ -376,14 +374,22 @@ def analyze_clusters(X, df, labels):
     for cluster in range(N_CLUSTERS):
         print(f"Cluster {cluster}:")
         cluster_data = df[labels == cluster]
-        for col in FEATURES_TO_ANALYZE:
-            print(cluster_data[col].value_counts(normalize=False))
-            print("\n")
+
+        print(cluster_data['id'].value_counts(normalize=False))
+        print("\n")
+        print(cluster_data['location'].value_counts(normalize=False))
+        print("\n")
+        print(cluster_data['incidenttype_cleaned'].value_counts(normalize=False))
+        print("\n")
         print(cluster_data['day_of_week'].value_counts(normalize=False))
         print("\n")
         print(cluster_data['month'].value_counts(normalize=False))
         print("\n")
         print(cluster_data['hour'].value_counts(normalize=False))
+        print("\n")
+        print(cluster_data['incidentdetails'].value_counts(normalize=False))
+        print("\n")
+        print(cluster_data['description'].value_counts(normalize=False))
         print("\n")
 
 def main():
@@ -391,11 +397,12 @@ def main():
     engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{dbname}')
 
     # Preprocessing the data
-    df, copied_df, vectorizers = load_and_transform_data(engine)
+    df, copied_df = load_and_transform_data(engine)
 
     # When preprocessing the data, certain columns are left out so that they can be indexed again for analysis; when using the DataFrame for clustering, these features are to be dropped as they are not in a usable format
-    X = df.drop(columns=FEATURES_TO_ANALYZE, axis=1)
-
+    X = df.drop(columns=['id', 'incidenttype_cleaned', 'location', 'incidentdetails', 'description'], axis=1)
+    # X = StandardScaler().fit_transform(X)
+    X = scale(X, axis=1)
     # Displays the silhouette plots
     # silhouette_analysis(X)
 
@@ -403,10 +410,12 @@ def main():
     elbow_plot(X)
 
     # Training the model
-    kmeans, labels = train_model(X)
+    _, labels = train_model(X)
 
     # Analyzing characteristics of each cluster
     analyze_clusters(X, df, labels)
+
+    # predict(kmeans)
 
 if __name__ == "__main__":
     main()
