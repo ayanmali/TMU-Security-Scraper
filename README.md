@@ -19,7 +19,9 @@ The second algorithm uses the incident date and type like before, but this algor
 NOTE: vector embeddings are stored in the table using PGVector.
 
 ## TODO
-- Replace "Toronto Police News Release" with an appropriate keyword based on incident details ✅
+- General
+    - Replace "Toronto Police News Release" with an appropriate keyword based on incident details ✅
+    - Add data transformation functions in a separate file and call those functions as needed in main files
 
 - Search feature ✅
     - Can use: OpenAI/Voyage Embeddings API, PGVector for search
@@ -33,7 +35,7 @@ NOTE: vector embeddings are stored in the table using PGVector.
     - Time feature relevance - incidents closer in date to the given incident are more relevant ⭕
     - Use streets.py for adjusting formatting of location (one hot encoding?) ✅
 
-- Clustering
+- Clustering ✅
     - K-Means to identify patterns in incident characteristics ✅
         - Figure out how to use silhouette analysis to determine the number of clusters to use ✅
         - Apply the elbow method to find the optimal K value ✅
@@ -41,7 +43,8 @@ NOTE: vector embeddings are stored in the table using PGVector.
     - Format the analysis better (ex. charts and graphs) ⭕
         - identify areas with high concentrations of incidents/high risk areas
     - Use streets.py for adjusting formatting of location (one hot encoding?) ✅
-
+    - ~~ Right now there are a very high number of clusters that aren't very useful for analysis -- should clustering be performed on one set of features at a time? Ex. one model only clusters by type, another clusters only by date/time features, another clusters only by location features, etc ~~
+ 
 - Incident Type Prediction (Classifier Model) ⭕
     - Predict incident type given location, description, time of year, day of week
 
