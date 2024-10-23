@@ -1,3 +1,6 @@
+"""
+Defines and groups some keywords commonly used in incident descriptions (to be used for cleaning incident details data).
+"""
 # More than one possible keyword can be used in an incident description, so the primary ones are to be checked first, and if there are no matches, then the secondary ones
 # This is to avoid some cases being misclassified - ex. a sexual assault case labeled as "Assault" because it has the string "assault" in the description.
 primary_keywords = {

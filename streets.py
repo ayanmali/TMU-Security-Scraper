@@ -1,4 +1,7 @@
-# north_to_south = {'Carlton Street' : 0, 'College Street' : 0, 'Gerrard Street' : 1, 'Gould Street' : 2, 'Dundas Street' : 3, 'Elm Street' : 4}
+"""
+Defines the names of streets and landmarks in the campus area (to use for cleaning location data).
+"""
+#  north_to_south = {'Carlton Street' : 0, 'College Street' : 0, 'Gerrard Street' : 1, 'Gould Street' : 2, 'Dundas Street' : 3, 'Elm Street' : 4}
 # west_to_east = {'Yonge Street' : 0, 'O\'Keefe Lane' : 1, 'Nelson Mandela Walk' : 2, 'Victoria Street' : 2, 'Bond Street' : 3, 'Church Street' : 4, 'Dalhousie Street' : 5, 'Mutual Street' : 6, 'Jarvis Street' : 7}
 
 primary = ['Yonge Street', 'O\'Keefe Lane', 'Nelson Mandela Walk', 'Victoria Street', 'Bond Street', 'Church Street', 'Dalhousie Street', 'Mutual Street', 'Jarvis Street', 'Bay Street']

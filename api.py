@@ -6,7 +6,7 @@ import datetime
 
 import sys
 sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers')
-from postgres_params import db_params, user, password, host, port, dbname
+from postgres_params import db_params#, user, password, host, port, dbname
 
 TABLE_NAME = "incidents"
 
@@ -61,7 +61,6 @@ def get_incident_by_id(id: int) -> Incident:
     
     # Stores the data from the DB into an Incident instance and returns it
     return Incident(**dict(zip(Incident.__fields__.keys(), incident_raw)))
-    pass
 
 """
 Gets the top N most recent incidents.

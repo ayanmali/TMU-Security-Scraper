@@ -1,13 +1,9 @@
-"""
-For better clusters use kmeans.py instead of this file
-"""
-
 import numpy as np
 
 # For converting text features into vectors
 from sklearn.feature_extraction.text import TfidfVectorizer
-from sklearn.preprocessing import StandardScaler, scale
-from sklearn.cluster import KMeans
+from sklearn.preprocessing import StandardScaler#, scale 
+from sklearn.cluster import KMeans, DBSCAN
 from sklearn.manifold import TSNE
 from sklearn.metrics import silhouette_samples, silhouette_score
 
@@ -30,11 +26,11 @@ from details_keywords import primary_keywords, secondary_keywords
 
 # Declaring constants
 TABLE_NAME = "incidents"
-# Obtained from silhouette analysis and the elbow plot
-N_CLUSTERS = 3
+# Obtained from the elbow plot
+# N_CLUSTERS = 15
 # Testing a range of possible cluster counts
-RANGE_N_CLUSTERS = range(2, 21)
-# FEATURES_TO_ANALYZE = ['id', 'incidenttype_cleaned', 'location']
+RANGE_N_CLUSTERS = range(3, 7)
+FEATURES_TO_ANALYZE = ['id', 'incidenttype', 'location']
 
 """
 Loads and preprocesses the data for training.
@@ -42,22 +38,19 @@ Loads and preprocesses the data for training.
 def load_and_transform_data(engine):
     # Loading the data into a DataFrame
     df = pd.read_sql(f"SELECT * FROM {TABLE_NAME} ORDER BY id", engine)
-    # Storing a duplicate of the DataFrame for reference
+    # Storing a duplicate of the DataFrame for reference when recommendations are suggested
     copied_df = df.copy(deep=True)
-    # Dropping unneccessary columns
     df = df.drop(columns=['page', 'otherincidenttype', 'detailsembed', 'locdetailsembed', 'locdescrembed', 'locationembed', 'descrembed'], axis=1)
 
     # For specifying the exact incident type for any incident type that is "Other"
     df = replace_other_incident_type(df)
     # For one hot encoding each street name of the intersection
-    df = process_locations(df)
+    #df = process_locations(df)
     # For one hot encoding incident types
-    df = process_types(df)
+    # df = process_types(df)
     # For the date/time of the incident
     df = get_dates(df)
 
-    # Dropping text columns since they are not needed for clustering
-    # df = df.drop(['incidentdetails', 'description'], axis=1)
     # text_features = {}
     # vectorizers = {}
 
@@ -74,9 +67,9 @@ def load_and_transform_data(engine):
 
     # return result_df, copied_df, vectorizers
 
-    # vectorizers = {}
-    
-    return df, copied_df
+    vectorizers = {}
+    df = df.drop(['incidentdetails', 'description'], axis=1)
+    return df, copied_df, vectorizers
 
 """
 Uses the keyword dictionaries to map any rows with "Other" as their incident type to an appropriate keyword (i.e. mapping it to a new category).
@@ -85,8 +78,6 @@ def format_type(row, primary_keywords, secondary_keywords):
     if row['incidenttype'] == "Other":
         details_lower = row['incidentdetails'].lower()
 
-        # More than one possible keyword can be used in an incident description, so the primary ones are to be checked first, and if there are no matches, then the secondary ones
-        # This is to avoid some cases being misclassified - ex. a sexual assault case labeled as "Assault" because it has the string "assault" in the description.
         for key, value in primary_keywords.items():
             if key in details_lower:
                 return value
@@ -222,11 +213,11 @@ def scale_text_features(tfidf_feature_df):
 Trains a K-means clustering model on the dataset and returns the trained model as well as the labels for each cluster.
 """
 def train_model(X):
-    random_state = 42
-    kmeans = KMeans(n_clusters=N_CLUSTERS, random_state=random_state)
-    kmeans.fit(X)
-    labels = kmeans.labels_
-    return kmeans, labels
+    # random_state = 42
+    dbscan = DBSCAN(eps=5, min_samples=2, metric='euclidean')
+    dbscan.fit(X)
+    labels = dbscan.labels_
+    return dbscan, labels
 
 """
 Creates a plot showing the change in variation across a given range of K values to use for clustering.
@@ -266,17 +257,21 @@ def silhouette_analysis(X):
         fig.set_size_inches(18, 7)
 
         # The 1st subplot is the silhouette plot
-        # The silhouette coefficient can range from -1, 1 but in this example all lie within [-0.1, 1]
+        # The silhouette coefficient can range from -1, 1 but in this example all
+        # lie within [-0.1, 1]
         ax1.set_xlim([-0.1, 1])
-        # The (n_clusters+1)*10 is for inserting blank space between silhouette plots of individual clusters, to demarcate them clearly.
+        # The (n_clusters+1)*10 is for inserting blank space between silhouette
+        # plots of individual clusters, to demarcate them clearly.
         ax1.set_ylim([0, len(X) + (n_clusters + 1) * 10])
 
-        # Initialize the clusterer with n_clusters value and a random generator seed of 10 for reproducibility.
-        clusterer = KMeans(n_clusters=n_clusters, random_state=10, n_init='auto')
+        # Initialize the clusterer with n_clusters value and a random generator
+        # seed of 10 for reproducibility.
+        clusterer = DBSCAN(eps=5, min_samples=2, metric='euclidean')
         cluster_labels = clusterer.fit_predict(X_reduced)
 
         # The silhouette_score gives the average value for all the samples.
-        # This gives a perspective into the density and separation of the formed clusters
+        # This gives a perspective into the density and separation of the formed
+        # clusters
         silhouette_avg = silhouette_score(X, cluster_labels)
         print(
             "For n_clusters =",
@@ -290,7 +285,8 @@ def silhouette_analysis(X):
 
         y_lower = 10
         for i in range(n_clusters):
-            # Aggregate the silhouette scores for samples belonging to cluster i, and sort them
+            # Aggregate the silhouette scores for samples belonging to
+            # cluster i, and sort them
             ith_cluster_silhouette_values = sample_silhouette_values[cluster_labels == i]
 
             ith_cluster_silhouette_values.sort()
@@ -364,7 +360,7 @@ Creates a scatter plot showing the clustered data points and provides a breakdow
 """
 def analyze_clusters(X, df, labels):
     # Reduces dimensionality of the dataset down to just two features so the data and the clusters can be easily visualized
-    tsne = TSNE(n_components=2, random_state=42)
+    tsne = TSNE(n_components=2, random_state=0)
     tsne_results = tsne.fit_transform(X)
 
     # Creates a scatter plot of the two features of the new reduced dataset
@@ -376,52 +372,54 @@ def analyze_clusters(X, df, labels):
     plt.ylabel('t-SNE feature 2')
     plt.show()
 
-    # Show a breakdown of the number of different values for each feature in each cluster
-    for cluster in range(N_CLUSTERS):
-        print(f"Cluster {cluster}:")
-        cluster_data = df[labels == cluster]
+    # Number of clusters in labels, ignoring noise if present.
+    n_clusters_ = len(set(labels)) - (1 if -1 in labels else 0)
+    n_noise_ = list(labels).count(-1)
 
-        print(cluster_data['id'].value_counts(normalize=False))
-        print("\n")
-        print(cluster_data['location'].value_counts(normalize=False))
-        print("\n")
-        print(cluster_data['incidenttype_cleaned'].value_counts(normalize=False))
-        print("\n")
-        print(cluster_data['day_of_week'].value_counts(normalize=False))
-        print("\n")
-        print(cluster_data['month'].value_counts(normalize=False))
-        print("\n")
-        print(cluster_data['hour'].value_counts(normalize=False))
-        print("\n")
-        print(cluster_data['incidentdetails'].value_counts(normalize=False))
-        print("\n")
-        print(cluster_data['description'].value_counts(normalize=False))
-        print("\n")
+    print("Estimated number of clusters: %d" % n_clusters_)
+    print("Estimated number of noise points: %d" % n_noise_)
+
+
+    # Show a breakdown of the number of different values for each feature in each cluster
+    # for cluster in range(18):
+    #     print(f"Cluster {cluster}:")
+    #     cluster_data = df[labels == cluster]
+    #     for col in FEATURES_TO_ANALYZE:
+    #         print(cluster_data[col].value_counts(normalize=False))
+    #         print("\n")
+    #     print(cluster_data['day_of_week'].value_counts(normalize=False))
+    #     print("\n")
+    #     print(cluster_data['month'].value_counts(normalize=False))
+    #     print("\n")
+    #     print(cluster_data['hour'].value_counts(normalize=False))
+    #     print("\n")
+
+    # for cluster in range(18):
+    #     cluster_data = df[labels == cluster]
+    #     print(f"Length: {len(cluster_data)}")
 
 def main():
     # Setting up the database connection
     engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{dbname}')
 
     # Preprocessing the data
-    df, copied_df = load_and_transform_data(engine)
+    df, copied_df, vectorizers = load_and_transform_data(engine)
 
     # When preprocessing the data, certain columns are left out so that they can be indexed again for analysis; when using the DataFrame for clustering, these features are to be dropped as they are not in a usable format
-    X = df.drop(columns=['id', 'incidenttype_cleaned', 'location', 'incidentdetails', 'description'], axis=1)
+    X = df.drop(columns=FEATURES_TO_ANALYZE, axis=1)
     # X = StandardScaler().fit_transform(X)
     X = scale(X, axis=1)
     # Displays the silhouette plots
     # silhouette_analysis(X)
 
     # Using the elbow method to find the point where the variation drops off the most (the "elbow" of the plot)
-    elbow_plot(X)
+    # elbow_plot(X)
 
     # Training the model
-    _, labels = train_model(X)
+    dbscan, labels = train_model(X)
 
     # Analyzing characteristics of each cluster
     analyze_clusters(X, df, labels)
-
-    # predict(kmeans)
 
 if __name__ == "__main__":
     main()
