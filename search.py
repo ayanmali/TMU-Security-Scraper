@@ -140,16 +140,16 @@ Creates the cursor and connection objects for interacting with the database.
 def setup_db():
     conn = psycopg2.connect(**db_params)
     cur = conn.cursor()
-    cur.execute('CREATE EXTENSION IF NOT EXISTS vector')
+    # cur.execute('CREATE EXTENSION IF NOT EXISTS vector')
     return conn, cur
 
-def main():
+# def main():
     # Setting up the database connection
-    engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{dbname}')
+    # engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{dbname}')
 
     # Setting up the database connection
-    conn, cur = setup_db()
-    register_vector(conn)
+    # conn, cur = setup_db()
+    # register_vector(conn)
 
     # Initializing the client to make OpenAI API requests
     # client = OpenAI()
@@ -167,5 +167,5 @@ def main():
     cur.close()
     conn.close()
 
-if __name__ == "__main__":
-    main()
+# if __name__ == "__main__":
+#     main()

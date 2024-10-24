@@ -188,7 +188,6 @@ def main():
     with open('vector_recommend_model.pkl', 'wb') as file:
         pickle.dump(knn, file)
 
-
     id_to_check = 107
     recommendations = get_recommendations(id_to_check, df, knn)
 

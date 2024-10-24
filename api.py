@@ -70,7 +70,19 @@ Gets the top N most recent incidents.
 """
 @app.get("/getrecent")
 def get_recent_incidents(limit: int = 5):
-    pass
+    query = sql.SQL("""SELECT
+                    id, incidenttype, location, page, incidentdetails, description, dateofincident, dateposted, datereported, otherincidenttype
+                    FROM {} ORDER BY dateofincident DESC LIMIT %s""")
+    cur.execute(query, (limit,))
+
+    total = []
+
+    for i in range(limit):
+        incident_raw = cur.fetchone()
+        incident = Incident(**dict(zip(Incident.__fields__.keys(), incident_raw)))
+        total.append(incident)
+
+    return total
 
 """
 Returns matching incidents given a search query from the search model.
