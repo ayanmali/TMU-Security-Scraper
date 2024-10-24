@@ -25,6 +25,7 @@ sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrap
 from postgres_params import user, password, host, port, dbname #, db_params
 
 from streets import secondary, landmarks
+from details_keywords import primary_keywords, secondary_keywords
 
 # Declaring constants
 TABLE_NAME = "incidents"
@@ -68,6 +69,32 @@ def load_and_transform_data(engine):
     vectorizers = {}
     df = df.drop(['incidentdetails', 'description'], axis=1)
     return df, copied_df, vectorizers
+
+"""
+Uses the keyword dictionaries to map any rows with "Other" as their incident type to an appropriate keyword (i.e. mapping it to a new category).
+"""
+def format_type(row, primary_keywords, secondary_keywords):
+    if row['incidenttype'] == "Other":
+        details_lower = row['incidentdetails'].lower()
+
+        for key, value in primary_keywords.items():
+            if key in details_lower:
+                return value
+            
+        for key, value in secondary_keywords.items():
+            if key in details_lower:
+                return value
+
+        return "Suspicious Behaviour"
+
+    return row['incidenttype']
+
+"""
+Replaces any values with an incident type of "Other" with an appropriate replacement based on the keywords of the incident details.
+"""
+def replace_other_incident_type(df):
+    df['incidenttype'] = df.apply(lambda row: format_type(row, primary_keywords, secondary_keywords), axis=1)
+    return df
 
 def format_landmarks(location):
     for key, value in landmarks.items():

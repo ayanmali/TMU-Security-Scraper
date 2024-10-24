@@ -7,6 +7,8 @@ from sklearn.feature_extraction.text import TfidfVectorizer
 from sklearn.preprocessing import StandardScaler 
 from sklearn.neighbors import NearestNeighbors
 
+import pickle
+
 # Can try either using TFIDFVectorizer or embeddings to see which works better
 # from openai import OpenAI
 
@@ -242,6 +244,10 @@ def main():
 
     # Training the model
     knn = train_model(df, N_NEIGHBORS)
+
+    # Saving the model
+    with open('tfidf_recommend_model.pkl', 'wb') as file:
+        pickle.dump(knn, file)
 
     # The ID in the database of the incident to check
     id_to_check = 420

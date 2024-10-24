@@ -24,6 +24,8 @@ import sys
 sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers')
 from postgres_params import db_params, user, password, host, port, dbname
 
+import pickle
+
 TABLE_NAME = "incidents"
 N_NEIGHBORS = 5
 
@@ -183,6 +185,10 @@ def main():
     
     # print(df.isna().any(axis=1))
     knn = train_model(df, N_NEIGHBORS)
+    with open('vector_recommend_model.pkl', 'wb') as file:
+        pickle.dump(knn, file)
+
+
     id_to_check = 107
     recommendations = get_recommendations(id_to_check, df, knn)
 

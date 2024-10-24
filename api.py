@@ -2,11 +2,14 @@ from fastapi import FastAPI, HTTPException
 from pydantic import BaseModel
 import psycopg2
 from psycopg2 import sql
-import datetime 
+import datetime
+# from typing import List
 
 import sys
 sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers')
 from postgres_params import db_params#, user, password, host, port, dbname
+
+import pickle
 
 TABLE_NAME = "incidents"
 
@@ -46,7 +49,7 @@ def root():
 """
 Returns an incident based on its ID from the database.
 """
-@app.get("/getone/{id}")
+@app.get("/getone")
 def get_incident_by_id(id: int) -> Incident:
     # SQL query to retrieve the desired data from the database
     query = sql.SQL("""SELECT
@@ -66,5 +69,22 @@ def get_incident_by_id(id: int) -> Incident:
 Gets the top N most recent incidents.
 """
 @app.get("/getrecent")
-def get_recent_incidents():
+def get_recent_incidents(limit: int = 5):
     pass
+
+"""
+Returns matching incidents given a search query from the search model.
+"""
+@app.get("/search")
+def get_search_results(query: str, limit: int = 4):
+    pass
+
+"""
+Returns similar incidents given an incident to reference from the recommendation model.
+"""
+@app.get("/recommend")
+def get_recommendations(incident: Incident, limit: int = 4):
+    with open('tfidf_recommend_model.pkl', 'rb') as file:
+        model = pickle.load(file)
+
+    return

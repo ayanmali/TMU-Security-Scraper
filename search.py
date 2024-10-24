@@ -35,7 +35,7 @@ N_DIMS = 256 + 128
 # N_DIMS_ALL = 256 + 256 + 128
 
 """
-Adds vector embeddings to each row of the table (i.e. each incident) based on its incident details and location + incident details, respectively
+Adds vector embeddings to each row of the table (i.e. each incident) based on its incident details and location + incident details and suspect description, respectively
 """
 def add_embeddings(cur, conn, client):
     # Use sql.Identifier to properly quote the table name
@@ -152,16 +152,16 @@ def main():
     register_vector(conn)
 
     # Initializing the client to make OpenAI API requests
-    client = OpenAI()
+    # client = OpenAI()
 
     # Adds embeddings for existing records in the database
     
-    add_embeddings(cur, conn, client)
-    add_loc_and_descr_embeddings(cur, conn, client)
+    #add_embeddings(cur, conn, client)
+    # add_loc_and_descr_embeddings(cur, conn, client)
 
-    query = ""
+    # query = ""
     # Vector column 0 corresponds to location + incident details, 1 corresponds to location + suspect description
-    print(get_search_results(cur, client, engine, query, vector_column=0, n=5))
+    # print(get_search_results(cur, client, engine, query, vector_column=0, n=5))
     
     # Closing the database connection
     cur.close()
