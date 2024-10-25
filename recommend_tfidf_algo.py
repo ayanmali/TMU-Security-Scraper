@@ -1,5 +1,5 @@
 """
-Uses incident type, date of incident, as well as location, incident details, and suspect descriptions to suggest recommendations.
+Uses incident type, date of incident, location, incident details, and suspect descriptions to suggest recommendations.
 """
 
 # For converting text features into vectors

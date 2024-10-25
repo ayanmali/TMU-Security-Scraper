@@ -9,7 +9,7 @@ import pandas as pd
 from sqlalchemy import create_engine
 import psycopg2
 from psycopg2 import sql
-from pgvector.psycopg2 import register_vector
+# from pgvector.psycopg2 import register_vector
 
 # For generating vector embeddings of incident details
 from openai import OpenAI
@@ -123,7 +123,10 @@ def get_search_results(cur, client, engine, search_query, vector_column, n=5):
     query_embedding = get_embedding(client, search_query)
 
     # Selecting the vector column in which to perform the search
-    col = LOCDESCR_EMBED_COLUMN_NAME if vector_column == 1 else LOCDETAILS_EMBED_COLUMN_NAME
+    col = LOCDETAILS_EMBED_COLUMN_NAME if vector_column == 0 else LOCDESCR_EMBED_COLUMN_NAME
+
+    # Convert string representations of vectors to numpy arrays
+    df[col] = df[col].apply(lambda x: np.array(eval(x)) if isinstance(x, str) else x)
 
     # Creates a column to store the cosine similarity between each row's vector embedding and the search query's vector embedding
     df['Similarity'] = df[col].apply(lambda x: get_cos_similarity(x, query_embedding))
@@ -132,6 +135,9 @@ def get_search_results(cur, client, engine, search_query, vector_column, n=5):
     return df.sort_values("Similarity", ascending=False, ignore_index=True)[['id', 'incidentdetails', 'location', 'description']].head(n)
 
 def get_cos_similarity(first, second):
+    # Ensure both inputs are numpy arrays
+    first = np.array(first) if not isinstance(first, np.ndarray) else first
+    second = np.array(second) if not isinstance(second, np.ndarray) else second
     return np.dot(first, second)/(norm(first)*norm(second))
 
 """
@@ -143,25 +149,25 @@ def setup_db():
     # cur.execute('CREATE EXTENSION IF NOT EXISTS vector')
     return conn, cur
 
-# def main():
+# For testing out the search functionality
+def main():
     # Setting up the database connection
-    # engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{dbname}')
+    engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{dbname}')
 
     # Setting up the database connection
-    # conn, cur = setup_db()
+    conn, cur = setup_db()
     # register_vector(conn)
 
     # Initializing the client to make OpenAI API requests
-    # client = OpenAI()
+    client = OpenAI()
 
     # Adds embeddings for existing records in the database
-    
-    #add_embeddings(cur, conn, client)
-    # add_loc_and_descr_embeddings(cur, conn, client)
+    add_embeddings(cur, conn, client)
+    add_loc_and_descr_embeddings(cur, conn, client)
 
-    # query = ""
+    query = ""
     # Vector column 0 corresponds to location + incident details, 1 corresponds to location + suspect description
-    # print(get_search_results(cur, client, engine, query, vector_column=0, n=5))
+    print(get_search_results(cur, client, engine, query, vector_column=0, n=5))
     
     # Closing the database connection
     cur.close()
