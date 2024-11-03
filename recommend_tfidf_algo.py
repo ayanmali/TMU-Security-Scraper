@@ -33,39 +33,39 @@ N_NEIGHBORS = 5
 """
 Loads and preprocesses the data for training.
 """
-def load_and_transform_data(engine):
+def load_and_transform_data(df):
     # Loading the data into a DataFrame
-    df = pd.read_sql(f"SELECT * FROM {TABLE_NAME} ORDER BY id", engine)
+    # df = pd.read_sql(f"SELECT * FROM {TABLE_NAME} ORDER BY id", engine)
     # Storing a duplicate of the DataFrame for reference when recommendations are suggested
     copied_df = df.copy(deep=True)
-    df = df.drop(columns=['page', 'otherincidenttype', 'detailsembed', 'locdetailsembed', 'locdescrembed', 'locationembed', 'descrembed'], axis=1)
+    copied_df = copied_df.drop(columns=['page', 'otherincidenttype', 'detailsembed', 'locdetailsembed', 'locdescrembed', 'locationembed', 'descrembed'], axis=1)
 
     # For specifying the exact incident type for any incident type that is "Other"
-    df = replace_other_incident_type(df)
+    copied_df = replace_other_incident_type(copied_df)
 
     # For one hot encoding the locations
-    df = process_locations(df)
+    copied_df = process_locations(copied_df)
 
     # For incident type
-    df = process_type(df)
+    copied_df = process_type(copied_df)
     # For the date/time of the incident
-    df = get_dates(df)
+    copied_df = get_dates(copied_df)
 
     text_features = {}
     vectorizers = {}
 
     # For incident details, locations, and suspect descriptions
     for col in ('incidentdetails', 'description'):
-        tfidf_df, vectorizers[col], _ = extract_text_features(df, col=col)
+        tfidf_df, vectorizers[col], _ = extract_text_features(copied_df, col=col)
         text_features[col] = scale_text_features(tfidf_df)
 
     # Dropping features that we don't need anymore
-    df = df.drop(['incidentdetails', 'description'], axis=1)
+    copied_df = copied_df.drop(['incidentdetails', 'description'], axis=1)
 
     # Concatenate all features
-    result_df = pd.concat([df] + list(text_features.values()), axis=1)
+    result_df = pd.concat([copied_df] + list(text_features.values()), axis=1)
 
-    return result_df, copied_df, vectorizers
+    return result_df, vectorizers
 
 """
 Uses the keyword dictionaries to map any rows with "Other" as their incident type to an appropriate keyword (i.e. mapping it to a new category).
@@ -222,7 +222,7 @@ def get_recommendations(id, df, model, n_recommendations=5):
     # Find the nearest neighbors
     distances, indices = model.kneighbors(incident_vector, n_neighbors=n_recommendations+1)
 
-    # The first result will be the incident itself, so we exclude it
+    # The first result will be the given incident (from the function argument) itself, so we exclude it from the output
     similar_incidents = df.iloc[indices[0][1:]]
 
     return similar_incidents
@@ -239,25 +239,28 @@ def main():
     # Setting up the database connection
     engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{dbname}')
 
+    df = pd.read_sql(f"SELECT * FROM {TABLE_NAME} ORDER BY id", engine)
     # Preprocessing the data
-    df, copied_df, vectorizers = load_and_transform_data(engine)
+    result_df, vectorizers = load_and_transform_data(df)
 
     # Training the model
-    knn = train_model(df, N_NEIGHBORS)
+    knn = train_model(result_df, N_NEIGHBORS)
 
     # Saving the model
     with open('tfidf_recommend_model.pkl', 'wb') as file:
         pickle.dump(knn, file)
 
     # The ID in the database of the incident to check
-    id_to_check = 420
-    
+    id_to_check = 69
+
     # Gets a list of IDs of the recommended incidents
-    recommendations = get_recommendations(id_to_check, df, knn)
+    recommendations = get_recommendations(id_to_check, result_df, knn)
 
     if recommendations is not None:
         print(f"Recommendations for incident with ID {id_to_check}:")
         print(recommendations[['id']])
+    else:
+        print("No recommendations found")
 
 if __name__ == "__main__":
     main()

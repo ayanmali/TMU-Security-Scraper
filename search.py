@@ -117,16 +117,14 @@ def get_embedding(client, input_str, dims=N_DIMS):
 """
 Returns the top n most relevant search results based on the given query.
 """
-def get_search_results(cur, client, engine, search_query, vector_column, n=5):
-    # Loading the data into a DataFrame
-    df = pd.read_sql(f"SELECT * FROM {TABLE_NAME}", engine)
+def get_search_results(cur, client, engine, search_query, vector_column, df, n=5):
     query_embedding = get_embedding(client, search_query)
 
     # Selecting the vector column in which to perform the search
     col = LOCDETAILS_EMBED_COLUMN_NAME if vector_column == 0 else LOCDESCR_EMBED_COLUMN_NAME
 
     # Convert string representations of vectors to numpy arrays
-    df[col] = df[col].apply(lambda x: np.array(eval(x)) if isinstance(x, str) else x)
+    # _df[col] = _df[col].apply(lambda x: np.array(eval(x)) if isinstance(x, str) else x)
 
     # Creates a column to store the cosine similarity between each row's vector embedding and the search query's vector embedding
     df['Similarity'] = df[col].apply(lambda x: get_cos_similarity(x, query_embedding))
@@ -158,6 +156,8 @@ def main():
     conn, cur = setup_db()
     # register_vector(conn)
 
+    df = pd.read_sql(f"SELECT * FROM {TABLE_NAME}", engine)
+
     # Initializing the client to make OpenAI API requests
     client = OpenAI()
 
@@ -165,9 +165,13 @@ def main():
     add_embeddings(cur, conn, client)
     add_loc_and_descr_embeddings(cur, conn, client)
 
+    # Convert string representations of vectors to numpy arrays
+    df[LOCDESCR_EMBED_COLUMN_NAME] = df[LOCDESCR_EMBED_COLUMN_NAME].apply(lambda x: np.array(eval(x)) if isinstance(x, str) else x)
+    df[LOCDETAILS_EMBED_COLUMN_NAME] = df[LOCDETAILS_EMBED_COLUMN_NAME].apply(lambda x: np.array(eval(x)) if isinstance(x, str) else x)
+
     query = ""
     # Vector column 0 corresponds to location + incident details, 1 corresponds to location + suspect description
-    print(get_search_results(cur, client, engine, query, vector_column=0, n=5))
+    print(get_search_results(cur, client, engine, query, vector_column=0, df=df, n=5))
     
     # Closing the database connection
     cur.close()
