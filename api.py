@@ -40,7 +40,7 @@ conn, cur = setup_db()
 engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{dbname}')
 client = OpenAI()
 
-# Setting up the DataFrame to use for searches/retrieving incidents
+# Setting up the DataFrame to use for searches/retrieving recent incidents
 df = pd.read_sql(f"SELECT * FROM {TABLE_NAME}", engine)
 # Convert string representations of vectors to numpy arrays
 df[LOCDESCR_EMBED_COLUMN_NAME] = df[LOCDESCR_EMBED_COLUMN_NAME].apply(lambda x: np.array(eval(x)) if isinstance(x, str) else x)
@@ -182,7 +182,7 @@ def search_results(query: Annotated[str, Query(min_length=1)], limit: Annotated[
 Returns similar incidents given an incident to reference from the recommendation model.
 """
 @app.get("/recommend/")
-def get_recommend(id: int, limit: Annotated[
+def get_recommend(incident_url: str, limit: Annotated[
         int | None, 
         Path(
             title="Number of incidents to retrieve",
@@ -199,7 +199,7 @@ def get_recommend(id: int, limit: Annotated[
         to_retrieve = DEFAULT_NUM_RETRIEVE
 
     # Using the given incident to determine other recommended incidents
-    results = get_recommendations(id, recommend_df, knn, n_recommendations=to_retrieve)
+    # results = get_recommendations(id, recommend_df, knn, n_recommendations=to_retrieve)
 
     # Returns the matching incidents in the response
     return {"results": results.to_dict(orient='records')}

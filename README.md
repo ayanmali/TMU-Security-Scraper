@@ -1,6 +1,17 @@
 # TMU-Security-Incidents
 Applying machine learning to TMU security incident data to help improve campus security.
 
+## How to Use
+After cloning this repo to your machine,
+
+1. Run this command on your command line/terminal:
+`pip install requirements.txt`
+
+2. Run this command:
+`uvicorn api:app`
+
+3. Run the index.html file in your browser
+
 ## Part 1. Scraping
 
 The first step was loading all the security data into a database. Using the API from the security incidents page, a list of all security incidents from 2018 to present were scraped and added to a PostgreSQL database. For each security incident, the incident's details and suspect descriptions were scraped via HTML parsing.

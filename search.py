@@ -130,7 +130,7 @@ def get_search_results(cur, client, engine, search_query, vector_column, df, n=5
     df['Similarity'] = df[col].apply(lambda x: get_cos_similarity(x, query_embedding))
 
     # Returns the n rows with the greatest cosine similarity
-    return df.sort_values("Similarity", ascending=False, ignore_index=True)[['id', 'incidentdetails', 'location', 'description']].head(n)
+    return df.sort_values("Similarity", ascending=False, ignore_index=True)[['id', 'incidentdetails', 'location', 'description', 'incidenttype', 'dateofincident']].head(n)
 
 def get_cos_similarity(first, second):
     # Ensure both inputs are numpy arrays
