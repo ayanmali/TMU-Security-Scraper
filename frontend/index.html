@@ -1,0 +1,287 @@
+<!DOCTYPE html>
+<html lang="en">
+<head>
+    <meta charset="UTF-8">
+    <meta name="viewport" content="width=device-width, initial-scale=1.0">
+    <title>TMU Security Incidents Dashboard</title>
+    <script src="https://cdnjs.cloudflare.com/ajax/libs/moment.js/2.29.1/moment.min.js"></script>
+    <style>
+        body {
+            font-family: system-ui, -apple-system, sans-serif;
+            max-width: 1200px;
+            margin: 0 auto;
+            padding: 20px;
+            background: #f5f5f5;
+        }
+
+        .container {
+            background: white;
+            padding: 20px;
+            border-radius: 8px;
+            box-shadow: 0 2px 4px rgba(0,0,0,0.1);
+        }
+
+        h1 {
+            color: #2d3748;
+            margin-bottom: 30px;
+        }
+
+        .search-container {
+            margin-bottom: 30px;
+        }
+
+        input[type="text"], input[type="number"] {
+            padding: 8px 12px;
+            border: 1px solid #e2e8f0;
+            border-radius: 4px;
+            margin-right: 10px;
+            width: 300px;
+        }
+
+        button {
+            background: #4a5568;
+            color: white;
+            border: none;
+            padding: 8px 16px;
+            border-radius: 4px;
+            cursor: pointer;
+            transition: background 0.2s;
+        }
+
+        button:hover {
+            background: #2d3748;
+        }
+
+        .incidents-container {
+            display: grid;
+            gap: 20px;
+            grid-template-columns: repeat(auto-fill, minmax(300px, 1fr));
+        }
+
+        .incident-card {
+            background: white;
+            border: 1px solid #e2e8f0;
+            border-radius: 6px;
+            padding: 15px;
+            box-shadow: 0 1px 3px rgba(0,0,0,0.1);
+        }
+
+        .incident-card h3 {
+            margin-top: 0;
+            color: #2d3748;
+        }
+
+        .incident-card p {
+            margin: 5px 0;
+            color: #4a5568;
+            font-size: 0.9em;
+        }
+
+        .tabs {
+            margin-bottom: 20px;
+        }
+
+        .tab {
+            background: none;
+            border: none;
+            padding: 10px 20px;
+            margin-right: 10px;
+            cursor: pointer;
+            border-bottom: 2px solid transparent;
+        }
+
+        .tab.active {
+            border-bottom: 2px solid #4a5568;
+            font-weight: bold;
+        }
+
+        .loading {
+            text-align: center;
+            padding: 20px;
+            font-style: italic;
+            color: #666;
+        }
+
+        .error {
+            color: #e53e3e;
+            padding: 10px;
+            margin: 10px 0;
+            border: 1px solid #e53e3e;
+            border-radius: 4px;
+            background: #fff5f5;
+        }
+    </style>
+</head>
+<body>
+    <div class="container">
+        <h1>TMU Security Incidents Dashboard</h1>
+
+        <div class="tabs">
+            <button class="tab active" onclick="switchTab('recent')">Recent Incidents</button>
+            <button class="tab" onclick="switchTab('search')">Search</button>
+            <button class="tab" onclick="switchTab('recommendations')">Recommendations</button>
+        </div>
+
+        <div id="recent-tab">
+            <div class="search-container">
+                <input type="number" id="recent-limit" placeholder="Number of incidents (default: 5)" min="1">
+                <button onclick="fetchRecentIncidents()">Get Recent Incidents</button>
+            </div>
+        </div>
+
+        <div id="search-tab" style="display: none;">
+            <div class="search-container">
+                <input type="text" id="search-query" placeholder="Enter search terms...">
+                <input type="number" id="search-limit" placeholder="Number of results (default: 5)" min="1">
+                <button onclick="searchIncidents()">Search</button>
+            </div>
+        </div>
+
+        <div id="recommendations-tab" style="display: none;">
+            <div class="search-container">
+                <input type="number" id="incident-id" placeholder="Enter incident ID...">
+                <input type="number" id="recommend-limit" placeholder="Number of recommendations (default: 5)" min="1">
+                <button onclick="getRecommendations()">Get Recommendations</button>
+            </div>
+        </div>
+
+        <div id="loading" class="loading" style="display: none;">Loading...</div>
+        <div id="error" class="error" style="display: none;"></div>
+        <div id="incidents-container" class="incidents-container"></div>
+    </div>
+
+    <!--JAVASCRIPT-->
+    <script>
+        const API_BASE_URL = 'http://127.0.0.1:8000';  // Update this with your API URL
+
+        function switchTab(tabName) {
+            // Hide all tabs
+            document.getElementById('recent-tab').style.display = 'none';
+            document.getElementById('search-tab').style.display = 'none';
+            document.getElementById('recommendations-tab').style.display = 'none';
+            
+            // Show selected tab
+            document.getElementById(`${tabName}-tab`).style.display = 'block';
+            
+            // Update active tab styling
+            document.querySelectorAll('.tab').forEach(tab => tab.classList.remove('active'));
+            document.querySelector(`[onclick="switchTab('${tabName}')"]`).classList.add('active');
+            
+            // Clear previous results
+            clearResults();
+        }
+
+        function showLoading() {
+            document.getElementById('loading').style.display = 'block';
+            document.getElementById('error').style.display = 'none';
+            document.getElementById('incidents-container').innerHTML = '';
+        }
+
+        function hideLoading() {
+            document.getElementById('loading').style.display = 'none';
+        }
+
+        function showError(message) {
+            const errorElement = document.getElementById('error');
+            errorElement.textContent = message;
+            errorElement.style.display = 'block';
+        }
+
+        function clearResults() {
+            document.getElementById('incidents-container').innerHTML = '';
+            document.getElementById('error').style.display = 'none';
+        }
+
+        function createIncidentCard(incident) {
+            return `
+                <div class="incident-card">
+                    <h3>${incident.incident_type || incident.incidenttype}</h3>
+                    <p><strong>Location:</strong> ${incident.location}</p>
+                    <p><strong>Date of Incident:</strong> ${moment(incident.date_of_incident || incident.dateofincident).format('MMMM D, YYYY')}</p>
+                    <p><strong>Description:</strong> ${incident.incident_description || incident.incidentdetails}</p>
+                    <p><strong>ID:</strong> ${incident.id}</p>
+                    ${incident.page_url || incident.page ? `<p><a href="${incident.page_url || incident.page}" target="_blank">View Details</a></p>` : ''}
+                </div>
+            `;
+        }
+
+        async function fetchRecentIncidents() {
+            showLoading();
+            const limit = document.getElementById('recent-limit').value;
+            const url = `${API_BASE_URL}/getrecent/${limit ? '?limit=' + limit : ''}`;
+            
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Failed to fetch recent incidents');
+                const data = await response.json();
+                
+                const container = document.getElementById('incidents-container');
+                container.innerHTML = data.incidents.map(createIncidentCard).join('');
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function searchIncidents() {
+            showLoading();
+            const query = document.getElementById('search-query').value;
+            const limit = document.getElementById('search-limit').value;
+            
+            if (!query) {
+                showError('Please enter a search query');
+                hideLoading();
+                return;
+            }
+
+            const url = `${API_BASE_URL}/search?query=${encodeURIComponent(query)}${limit ? '&limit=' + limit : ''}`;
+            
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Search failed');
+                const data = await response.json();
+                
+                const container = document.getElementById('incidents-container');
+                container.innerHTML = data.results.map(createIncidentCard).join('');
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        async function getRecommendations() {
+            showLoading();
+            const id = document.getElementById('incident-id').value;
+            const limit = document.getElementById('recommend-limit').value;
+            
+            if (!id) {
+                showError('Please enter an incident ID');
+                hideLoading();
+                return;
+            }
+
+            const url = `${API_BASE_URL}/recommend?id=${id}${limit ? '&limit=' + limit : ''}`;
+            
+            try {
+                const response = await fetch(url);
+                if (!response.ok) throw new Error('Failed to get recommendations');
+                const data = await response.json();
+                
+                const container = document.getElementById('incidents-container');
+                container.innerHTML = data.results.map(createIncidentCard).join('');
+            } catch (error) {
+                showError(error.message);
+            } finally {
+                hideLoading();
+            }
+        }
+
+        // Load recent incidents by default
+        fetchRecentIncidents();
+    </script>
+    <!--END JAVASCRIPT-->
+    
+</body>
+</html>

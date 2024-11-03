@@ -244,6 +244,9 @@ def insert_data(cur, conn, data, client):
 
     # Adding the data from each incident returned in the response
     for item in data:
+        # Cleaning the page URL
+        page = item['page'].replace("/content/ryerson/", "https://www.torontomu.ca/")
+
         # Adding other incident type if it was present in the response, NA otherwise   
         if "otherIncidentType" in item.keys():
             otherIncidentTypeValue = item['otherIncidentType']
@@ -270,7 +273,7 @@ def insert_data(cur, conn, data, client):
 
         # Executing the query and passing in the values to add to the table
         cur.execute(insert_query, (
-            item['page'],
+            page,
             item['incidentType'],
             item['date'],
             dateReportedValue,

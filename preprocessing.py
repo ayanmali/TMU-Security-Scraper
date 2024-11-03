@@ -205,3 +205,7 @@ def scale_text_features(tfidf_feature_df):
     scaled_features = scaler.fit_transform(tfidf_feature_df)
     # Adding the scaled data to the original DataFrame
     return pd.DataFrame(scaled_features, columns=tfidf_feature_df.columns)
+
+def format_url(df):
+    df['page'] = df['page'].replace("/content/ryerson/", "https://www.torontomu.ca/", regex=True)
+    return df

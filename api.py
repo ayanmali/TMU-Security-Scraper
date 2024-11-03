@@ -1,4 +1,6 @@
-from fastapi import FastAPI, HTTPException
+from typing import Annotated
+from fastapi import FastAPI, HTTPException, Path, Query
+from fastapi.middleware.cors import CORSMiddleware
 from fastapi.encoders import jsonable_encoder
 from pydantic import BaseModel
 import psycopg2
@@ -13,6 +15,7 @@ from openai import OpenAI
 
 from search import get_search_results, LOCDETAILS_EMBED_COLUMN_NAME, LOCDESCR_EMBED_COLUMN_NAME
 from recommend_tfidf_algo import get_recommendations, load_and_transform_data, train_model, N_NEIGHBORS
+# from preprocessing import format_url
 
 import sys
 sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers')
@@ -37,7 +40,7 @@ conn, cur = setup_db()
 engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{dbname}')
 client = OpenAI()
 
-# Setting up the DataFrame to use for searches/recommendations
+# Setting up the DataFrame to use for searches/retrieving incidents
 df = pd.read_sql(f"SELECT * FROM {TABLE_NAME}", engine)
 # Convert string representations of vectors to numpy arrays
 df[LOCDESCR_EMBED_COLUMN_NAME] = df[LOCDESCR_EMBED_COLUMN_NAME].apply(lambda x: np.array(eval(x)) if isinstance(x, str) else x)
@@ -67,6 +70,21 @@ class Incident(BaseModel):
 
 app = FastAPI()
 
+# origins = [
+#     "http://localhost.tiangolo.com",
+#     "https://localhost.tiangolo.com",
+#     "http://localhost",
+#     "http://localhost:8080",
+# ]
+
+app.add_middleware(
+    CORSMiddleware,
+    allow_origins=["*"],
+    allow_credentials=True,
+    allow_methods=["*"],
+    allow_headers=["*"],
+)
+
 @app.get("/")
 def root():
     return {"message" : "Welcome to the TMU Security Incidents API"}
@@ -75,7 +93,8 @@ def root():
 Returns an incident based on its ID from the database.
 """
 @app.get("/getone/{id}")
-def get_incident_by_id(id: int) -> Incident:
+# Input validation for the ID
+def get_incident_by_id(id: Annotated[int, Path(title="The ID of the item to get", ge=0)]) -> Incident:
     # SQL query to retrieve the desired record from the database
     query = sql.SQL("""SELECT
                     id, incidenttype, location, page, incidentdetails, description, dateofincident, dateposted, datereported, otherincidenttype
@@ -94,7 +113,14 @@ def get_incident_by_id(id: int) -> Incident:
 Gets the top N most recent incidents.
 """
 @app.get("/getrecent/")
-def get_recent_incidents(limit: int | None = None):
+def get_recent_incidents(limit: Annotated[
+        int | None, 
+        Query(
+            title="Number of incidents to retrieve",
+            description="If not specified, returns default number of incidents",
+            ge=1,
+        )
+    ] = None):
     if limit:
         to_retrieve = limit
     else:
@@ -112,6 +138,7 @@ def get_recent_incidents(limit: int | None = None):
     # Adds each incident record to the list
     for i in range(to_retrieve):
         incident_raw = cur.fetchone()
+
         # Object to store the incident data from the DB record
         incident = Incident(**dict(zip(Incident.__fields__.keys(), incident_raw)))
         # Stores the JSON representation of the object into the list
@@ -126,13 +153,20 @@ def get_recent_incidents(limit: int | None = None):
 # Simulates a POST request to add an incident to the DB
 # @app.post("/addincident/{incident}")
 # def add_incident(incident: Incident):
-#     pass
+#     return incident
 
 """
 Returns matching incidents given a search query from the search model.
 """
 @app.get("/search")
-def search_results(query: str, limit: int | None = None):
+def search_results(query: Annotated[str, Query(min_length=1)], limit: Annotated[
+        int | None, 
+        Path(
+            title="Number of incidents to retrieve",
+            description="If not specified, returns default number of incidents",
+            ge=1
+        )
+    ] = None):
     if limit:
         to_retrieve = limit 
     else:
@@ -148,7 +182,14 @@ def search_results(query: str, limit: int | None = None):
 Returns similar incidents given an incident to reference from the recommendation model.
 """
 @app.get("/recommend/")
-def get_recommend(id: int, limit: int | None = None):
+def get_recommend(id: int, limit: Annotated[
+        int | None, 
+        Path(
+            title="Number of incidents to retrieve",
+            description="If not specified, returns default number of incidents",
+            ge=1
+        )
+    ] = None):
     # Importing the K-nearest neighbours model
     # with open('tfidf_recommend_model.pkl', 'rb') as file:
     #     model = pickle.load(file)
