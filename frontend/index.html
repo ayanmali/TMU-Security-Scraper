@@ -112,6 +112,60 @@
             border-radius: 4px;
             background: #fff5f5;
         }
+
+        .tooltip-container {
+            position: relative;
+            display: inline-flex;
+            align-items: center;
+        }
+
+        .tooltip-icon {
+            display: inline-flex;
+            align-items: center;
+            justify-content: center;
+            width: 20px;
+            height: 20px;
+            background: #4a5568;
+            color: white;
+            border-radius: 50%;
+            margin-left: 8px;
+            font-size: 14px;
+            cursor: help;
+        }
+
+        .tooltip {
+            visibility: hidden;
+            position: absolute;
+            left: calc(100% + 10px);
+            top: 50%;
+            transform: translateY(-50%);
+            background: #2d3748;
+            color: white;
+            padding: 8px 12px;
+            border-radius: 4px;
+            font-size: 14px;
+            width: 250px;
+            z-index: 100;
+            opacity: 0;
+            transition: opacity 0.2s;
+        }
+
+        .tooltip::before {
+            content: '';
+            position: absolute;
+            left: -6px;
+            top: 50%;
+            transform: translateY(-50%);
+            border-width: 6px;
+            border-style: solid;
+            border-color: transparent #2d3748 transparent transparent;
+        }
+
+        .tooltip-icon:hover + .tooltip {
+            visibility: visible;
+            opacity: 1;
+        }
+            
     </style>
 </head>
 <body>
@@ -141,7 +195,14 @@
 
         <div id="recommendations-tab" style="display: none;">
             <div class="search-container">
-                <input type="number" id="incident-id" placeholder="Enter an incident URL...">
+                <div class="tooltip-container">
+                    <input type="text" id="incident-id" placeholder="Enter the date of an incident (YYYY-MM-DD)...">
+                    <span class="tooltip-icon">?</span>
+                    <div class="tooltip">
+                        If there was more than one incident on a particular date, you can indicate the specific incident by adding a number at the end (i.e. YYYY-MM-DD-N).
+                    </div>
+                </div>
+
                 <input type="number" id="recommend-limit" placeholder="Number of recommendations (default: 5)" min="1">
                 <button onclick="getRecommendations()">Get Recommendations</button>
             </div>
@@ -264,7 +325,7 @@
                 return;
             }
 
-            const url = `${API_BASE_URL}/recommend?id=${id}${limit ? '&limit=' + limit : ''}`;
+            const url = `${API_BASE_URL}/recommend/${id}${limit ? '?limit=' + limit : ''}`;
             
             try {
                 const response = await fetch(url);

@@ -14,7 +14,7 @@ from openai import OpenAI
 # from typing import List
 
 from search import get_search_results, LOCDETAILS_EMBED_COLUMN_NAME, LOCDESCR_EMBED_COLUMN_NAME
-from recommend_tfidf_algo import get_recommendations, load_and_transform_data, train_model, N_NEIGHBORS
+from recommend_tfidf_algo import get_recommendations, load_and_transform_data, parse_incident_identifier, train_model, N_NEIGHBORS
 # from preprocessing import format_url
 
 import sys
@@ -181,25 +181,42 @@ def search_results(query: Annotated[str, Query(min_length=1)], limit: Annotated[
 """
 Returns similar incidents given an incident to reference from the recommendation model.
 """
-@app.get("/recommend/")
-def get_recommend(incident_url: str, limit: Annotated[
-        int | None, 
+@app.get("/recommend/{date_identifier}")
+def get_recommend(date_identifier: Annotated[
+        str, 
         Path(
+            title="Date string in YYYY-MM-DD or YYYY-MM-DD-N format",
+            pattern=r'^\d{4}-(0[1-9]|1[0-2])-(0[1-9]|[12]\d|3[01])(-\d+)?$'
+        )
+    ], limit: Annotated[
+        int | None, 
+        Query(
             title="Number of incidents to retrieve",
             description="If not specified, returns default number of incidents",
             ge=1
         )
     ] = None):
+
     # Importing the K-nearest neighbours model
     # with open('tfidf_recommend_model.pkl', 'rb') as file:
     #     model = pickle.load(file)
+
     if limit:
         to_retrieve = limit 
     else:
         to_retrieve = DEFAULT_NUM_RETRIEVE
 
+    id_to_check = parse_incident_identifier(date_identifier, cur, conn)
     # Using the given incident to determine other recommended incidents
-    # results = get_recommendations(id, recommend_df, knn, n_recommendations=to_retrieve)
+    results_ids = get_recommendations(id_to_check, recommend_df, knn, n_recommendations=to_retrieve)
 
+    recommended_incidents = df[df['id'].isin(results_ids)].copy()
+    incidents_list = recommended_incidents[['id', 'incidenttype', 'location', 'page', 
+                                         'incidentdetails', 'description', 
+                                         'dateofincident', 'dateposted', 
+                                         'datereported', 'otherincidenttype']].to_dict('records')
     # Returns the matching incidents in the response
-    return {"results": results.to_dict(orient='records')}
+    return {
+        "count" : len(incidents_list),
+        "results": incidents_list
+    }

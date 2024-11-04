@@ -16,8 +16,9 @@ import pandas as pd
 # For the database connection
 from sqlalchemy import create_engine
 # import psycopg2
-# from psycopg2 import sql
+from psycopg2 import sql
 # from pgvector.psycopg2 import register_vector
+import calendar
 
 # Database credentials
 import sys
@@ -223,9 +224,35 @@ def get_recommendations(id, df, model, n_recommendations=5):
     distances, indices = model.kneighbors(incident_vector, n_neighbors=n_recommendations+1)
 
     # The first result will be the given incident (from the function argument) itself, so we exclude it from the output
-    similar_incidents = df.iloc[indices[0][1:]]
+    similar_incidents = df.iloc[indices[0][1:]]['id']
 
     return similar_incidents
+
+def parse_incident_identifier(identifier, cur, conn):
+    # Identifier format: YYYY-MM-DD or YYYY-MM-DD-N
+    # where N is the number of prior incidents that day
+    year = identifier[0:4]
+    month = identifier[5:7]
+    month_name = list(calendar.month_name)[int(month)].lower()
+    day = identifier[8:10]
+
+    # Defining the substring to look for in the page column of the table
+    substring_to_check = f'%{year}/{month}/security-incident-{month_name}-{day}'
+
+    # Checking if there is an identifier at the end of the given parameter
+    if len(identifier) > 10 and int(identifier[-1]) > 1:
+        substring_to_check += identifier[-2:]
+    substring_to_check += '%'
+
+    # SQL query to get the matching row
+    query = sql.SQL("""SELECT id FROM {} WHERE page LIKE %s""").format(sql.Identifier(TABLE_NAME))
+    
+    # Retrieve the ID of the matching incident
+    cur.execute(query, (substring_to_check,))
+    result = cur.fetchone()
+    if result is None:
+        return None
+    return result[0]
 
 """
 Trains a K-nearest neighbors model on the dataset and returns the trained model.
@@ -258,7 +285,7 @@ def main():
 
     if recommendations is not None:
         print(f"Recommendations for incident with ID {id_to_check}:")
-        print(recommendations[['id']])
+        print(recommendations)
     else:
         print("No recommendations found")
 
