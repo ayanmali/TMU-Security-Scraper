@@ -2,15 +2,20 @@
 Applying machine learning to TMU security incident data to help improve campus security.
 
 ## How to Use
-After cloning this repo to your machine,
+After cloning this repo to your machine, run the following commands on your command line/terminal:
 
-1. Run this command on your command line/terminal:
+1. Create and start a Python virtual environment:
+`python -m venv venv`
+`cd venv/Scripts`
+`activate`
+
+2. Install dependencies:
 `pip install requirements.txt`
 
-2. Run this command:
+3. Start the server:
 `uvicorn api:app`
 
-3. Run the index.html file in your browser
+4. Run the index.html file in your browser
 
 ## Part 1. Scraping
 

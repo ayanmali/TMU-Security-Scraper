@@ -173,15 +173,16 @@
         <h1>TMU Security Incidents Dashboard</h1>
 
         <div class="tabs">
-            <button class="tab active" onclick="switchTab('recent')">Recent Incidents</button>
+            <button class="tab active" onclick="switchTab('all')">All Incidents</button>
             <button class="tab" onclick="switchTab('search')">Search</button>
             <button class="tab" onclick="switchTab('recommendations')">Recommendations</button>
         </div>
 
-        <div id="recent-tab">
-            <div class="search-container">
-                <input type="number" id="recent-limit" placeholder="Number of incidents (default: 5)" min="1">
-                <button onclick="fetchRecentIncidents()">Get Recent Incidents</button>
+        <div id="all-tab">
+            <div class="pagination">
+                <button onclick="changePage('prev')" id="prev-page">Previous</button>
+                <span class="page-info">Page <span id="current-page">1</span></span>
+                <button onclick="changePage('next')" id="next-page">Next</button>
             </div>
         </div>
 
@@ -216,10 +217,13 @@
     <!--JAVASCRIPT-->
     <script>
         const API_BASE_URL = 'http://127.0.0.1:8000';  // Update this with your API URL
+        const ITEMS_PER_PAGE = 20;
+        let currentPage = 1;
+        let totalPages = 1;
 
         function switchTab(tabName) {
             // Hide all tabs
-            document.getElementById('recent-tab').style.display = 'none';
+            document.getElementById('all-tab').style.display = 'none';
             document.getElementById('search-tab').style.display = 'none';
             document.getElementById('recommendations-tab').style.display = 'none';
             
@@ -232,6 +236,26 @@
             
             // Clear previous results
             clearResults();
+
+            if (tabName == 'all') {
+                fetchAllIncidents();
+            }
+        }
+
+        function updatePaginationControls() {
+            document.getElementById('current-page').textContent = currentPage;
+            document.getElementById('prev-page').disabled = currentPage === 1;
+            document.getElementById('next-page').disabled = currentPage === totalPages;
+        }
+
+        async function changePage(dir) {
+            if (dir == 'prev' && currentPage > 1) {
+                currentPage--;
+            }
+            else if (dir == 'next' && currentPage < totalPages) {
+                currentPage++;
+            }
+            await fetchAllIncidents();
         }
 
         function showLoading() {
@@ -268,19 +292,22 @@
             `;
         }
 
-        async function fetchRecentIncidents() {
+        async function fetchAllIncidents() {
             showLoading();
-            const limit = document.getElementById('recent-limit').value;
-            const url = `${API_BASE_URL}/getrecent/${limit ? '?limit=' + limit : ''}`;
+            const offset = (currentPage - 1) * ITEMS_PER_PAGE;
+            const url = `${API_BASE_URL}/getincidents?offset=${offset}&limit=${ITEMS_PER_PAGE}`;
             
             try {
                 const response = await fetch(url);
-                if (!response.ok) throw new Error('Failed to fetch recent incidents');
+                if (!response.ok) throw new Error('Failed to fetch incidents');
                 const data = await response.json();
                 
+                totalPages = Math.ceil(data.total / ITEMS_PER_PAGE);
+                updatePaginationControls();
+
                 const container = document.getElementById('incidents-container');
                 container.innerHTML = data.incidents.map(createIncidentCard).join('');
-            } catch (error) {
+            } catch (error) {  
                 showError(error.message);
             } finally {
                 hideLoading();
@@ -342,7 +369,7 @@
         }
 
         // Load recent incidents by default
-        fetchRecentIncidents();
+        fetchAllIncidents();
     </script>
     <!--END JAVASCRIPT-->
 

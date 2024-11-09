@@ -150,10 +150,44 @@ def get_recent_incidents(limit: Annotated[
         "incidents": incidents
     }
 
+# Main endpoint used for getting incidents in a paginated manner
+@app.get("/getincidents")
+def get_incidents(offset: int = 0, limit: int = 20):
+    # Query to retrieve the top N records with the most recent date of occurence
+    query = sql.SQL("""SELECT
+                    id, incidenttype, location, page, incidentdetails, description, dateofincident, dateposted, datereported, otherincidenttype
+                    FROM {} ORDER BY dateofincident DESC LIMIT %s OFFSET %s""").format(sql.Identifier(TABLE_NAME))
+    
+    # To get the total number of incidents
+    count_query = sql.SQL("SELECT COUNT(*) FROM {}").format(sql.Identifier(TABLE_NAME))
+    cur.execute(count_query)
+    total_count = cur.fetchone()[0]
+
+    # Main query to retrieve incidents
+    cur.execute(query, (limit, offset))
+    incidents = []
+    
+    # Convert results to list of incidents
+    for record in cur.fetchall():
+        incident = Incident(**dict(zip(
+            Incident.__fields__.keys(),
+            record
+        )))
+        incidents.append(jsonable_encoder(incident))
+    
+    return {
+        "total": total_count,
+        "incidents": incidents
+    }
+
 # Simulates a POST request to add an incident to the DB
 # @app.post("/addincident/{incident}")
 # def add_incident(incident: Incident):
 #     return incident
+
+# app.post("/add-notes")
+# def add_notes():
+#     pass
 
 """
 Returns matching incidents given a search query from the search model.
