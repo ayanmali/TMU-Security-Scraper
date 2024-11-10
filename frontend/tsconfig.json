@@ -1,0 +1,10 @@
+{
+  "compilerOptions": {
+    "target": "es2020",
+    "lib": ["dom", "ES2020"],
+    "esModuleInterop": true,
+    "allowSyntheticDefaultImports": true,
+    "moduleResolution": "nodenext",
+    "module" : "nodenext"
+  },
+}

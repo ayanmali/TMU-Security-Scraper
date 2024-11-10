@@ -210,7 +210,7 @@ def search_results(query: Annotated[str, Query(min_length=1)], limit: Annotated[
     results = get_search_results(cur, client, engine, search_query=query, vector_column=0, df=df, n=to_retrieve)
     
     # Returns the matching incidents in the response
-    return {"results": results.to_dict(orient='records')}
+    return {"count" : to_retrieve, "incidents": results.to_dict(orient='records')}
 
 """
 Returns similar incidents given an incident to reference from the recommendation model.
@@ -252,5 +252,5 @@ def get_recommend(date_identifier: Annotated[
     # Returns the matching incidents in the response
     return {
         "count" : len(incidents_list),
-        "results": incidents_list
+        "incidents": incidents_list
     }
