@@ -1,3 +1,3 @@
 """
-TODO: Implement SARIMA for time series analysis
+TODO: Implement SARIMA/RNN/Gradient boosted trees for time series analysis
 """

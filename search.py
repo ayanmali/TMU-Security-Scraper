@@ -117,7 +117,7 @@ def get_embedding(client, input_str, dims=N_DIMS):
 """
 Returns the top n most relevant search results based on the given query.
 """
-def get_search_results(cur, client, engine, search_query, vector_column, df, n=5):
+def get_search_results(client, search_query, vector_column, df, n=5):
     query_embedding = get_embedding(client, search_query)
 
     # Selecting the vector column in which to perform the search
@@ -162,14 +162,15 @@ def main():
     client = OpenAI()
 
     # Adds embeddings for existing records in the database
-    add_embeddings(cur, conn, client)
-    add_loc_and_descr_embeddings(cur, conn, client)
+    # add_embeddings(cur, conn, client)
+    # add_loc_and_descr_embeddings(cur, conn, client)
 
     # Convert string representations of vectors to numpy arrays
     df[LOCDESCR_EMBED_COLUMN_NAME] = df[LOCDESCR_EMBED_COLUMN_NAME].apply(lambda x: np.array(eval(x)) if isinstance(x, str) else x)
     df[LOCDETAILS_EMBED_COLUMN_NAME] = df[LOCDETAILS_EMBED_COLUMN_NAME].apply(lambda x: np.array(eval(x)) if isinstance(x, str) else x)
 
-    query = ""
+    # Search query
+    query = "stabbing"
     # Vector column 0 corresponds to location + incident details, 1 corresponds to location + suspect description
     print(get_search_results(cur, client, engine, query, vector_column=0, df=df, n=5))
     
@@ -177,5 +178,5 @@ def main():
     cur.close()
     conn.close()
 
-# if __name__ == "__main__":
-#     main()
+if __name__ == "__main__":
+    main()
