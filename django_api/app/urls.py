@@ -16,6 +16,8 @@ urlpatterns = [
     path('getone/<int:incident_id>', views.IncidentDetailView.as_view(), name='get-one'),
     path('getrecent/', views.RecentIncidents.as_view(), name='get-recent'),
     path('getincidents/', views.PaginatedIncidents.as_view(), name='paginated-incidents'),
+    path('search/', views.SearchIncidents.as_view(), name='search-incidents'),
+    path('recommend/<str:date_ident>', views.RecommendIncidents.as_view(), name='recommend-incidents'),
 
     # Endpoint for providing a user with an auth token
     path('api-token-auth/', obtain_auth_token, name='api-token'),

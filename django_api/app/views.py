@@ -1,10 +1,13 @@
 from django.shortcuts import get_object_or_404#, render
-from django.http import HttpResponse, JsonResponse 
+from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest 
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
 from rest_framework.authentication import TokenAuthentication
 from rest_framework.permissions import IsAuthenticated
+
+import re
+from datetime import datetime
 
 from .postgres_params import USER, PASSWORD, HOST, PORT, DBNAME
 
@@ -84,7 +87,7 @@ class IncidentDetailView(APIView):
     permission_classes = [IsAuthenticated]
 
     def get(self, request, incident_id):
-        # ADD ERROR HANDLING
+        # ADD ERROR HANDLING FOR INCIDENT_ID
 
         item = get_object_or_404(Incident, id=incident_id)
         serializer = IncidentSerializer(item)
@@ -161,7 +164,9 @@ class PaginatedIncidents(APIView):
         } 
 
         return Response(data)
-    
+"""
+Endpoint to return relevant incident records based on a user's search query.
+"""    
 class SearchIncidents(APIView):
     authentication_classes = [TokenAuthentication]
     permission_classes = [IsAuthenticated]
@@ -197,3 +202,65 @@ class SearchIncidents(APIView):
         return Response({'count' : limit,
                          'results' : serializer.data})
 
+"""
+Endpoint to retrieve incident records based on their similarity to a given incident.
+"""
+# takes limit as a query parameter, and date identifier (YYYY-MM-DD or YYYY-MM-DD-N) as a path parameter
+class RecommendIncidents(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    # Defining the regex pattern for which to match the date identifier parameter against
+    date_pattern = re.compile(r'^\d{4}-(?:0[1-9]|1[0-2])-(?:0[1-9]|[12]\d|3[01])(?:-\d+)?$')
+    
+    """
+    Validates the date parameter format and checks if it's a valid date.
+    """
+    def validate_date_ident(self, date_ident: str):# -> Tuple[bool, Optional[str]]:
+        # Check if the parameter matches the expected pattern
+        if not self.date_pattern.match(date_ident):
+            return False, "Invalid date format. Use YYYY-MM-DD or YYYY-MM-DD-N"
+            
+        # Split into date and optional number
+        date_parts = date_ident.split('-')
+        date_str = '-'.join(date_parts[:3])
+        
+        # Validate that the date is real
+        try:
+            datetime.strptime(date_str, '%Y-%m-%d')
+            return True, None
+        except ValueError:
+            return False, f"Invalid date: {date_str}"
+
+    def get(self, request, date_ident):
+        # Validating the date identifier path parameter
+        if (date_ident is None or len(date_ident) < 10):
+            return HttpResponseBadRequest('The date identifier must be a valid string in the format YYYY-MM-DD or YYYY-MM-DD-N')
+            #return Response({'error' : 'The date identifier must be a valid string in the format YYYY-MM-DD or YYYY-MM-DD-N'},status=status.HTTP_400_BAD_RESPONSE)
+        is_valid, err = self.validate_date_param(date_ident)
+        if not is_valid:
+            return HttpResponseBadRequest(err)
+
+        # Validating the limit query parameter
+        limit = request.query_params.get('limit', None)
+        # Validating the query parameter
+        input_val = num_input_validation([limit], defaults=[DEFAULT_TO_RETRIEVE], error_msgs=["The number of incidents must be a valid number greater than or equal to 1."])[0]
+        if type(input_val) is Response:
+            return input_val
+        limit = input_val
+
+        # Querying the DB to return recommended incidents
+        substring_to_check = parse_incident_identifier()
+        incident_id_to_check = Incident.objects.get(page__icontains=substring_to_check).values_list('id', flat=True)[0]
+
+        if incident_id_to_check is None:
+            return HttpResponseBadRequest(f"No incidents found for the date {date_ident}.")
+        
+        results_ids = get_recommendations(incident_id_to_check, recommend_df, knn, n_recommendations=limit).values
+
+        results = Incident.objects.filter(pk__in=results_ids)
+
+        serializer = IncidentSerializer(results, many=True)
+
+        return Response({'count' : limit,
+                         'results' : serializer.data})

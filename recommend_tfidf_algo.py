@@ -230,7 +230,7 @@ def get_recommendations(id, df, model, n_recommendations=5):
 
 def parse_incident_identifier(identifier, cur, conn):
     # Identifier format: YYYY-MM-DD or YYYY-MM-DD-N
-    # where N is the number of prior incidents that day
+    # where N-1 is the number of incidents previously in that day
     year = identifier[0:4]
     month = identifier[5:7]
     month_name = list(calendar.month_name)[int(month)].lower()
@@ -244,15 +244,16 @@ def parse_incident_identifier(identifier, cur, conn):
         substring_to_check += identifier[-2:]
     substring_to_check += '%'
 
-    # SQL query to get the matching row
-    query = sql.SQL("""SELECT id FROM {} WHERE page LIKE %s""").format(sql.Identifier(TABLE_NAME))
+    return substring_to_check
+    # # SQL query to get the matching row
+    # query = sql.SQL("""SELECT id FROM {} WHERE page LIKE %s""").format(sql.Identifier(TABLE_NAME))
     
-    # Retrieve the ID of the matching incident
-    cur.execute(query, (substring_to_check,))
-    result = cur.fetchone()
-    if result is None:
-        return None
-    return result[0]
+    # # Retrieve the ID of the matching incident
+    # cur.execute(query, (substring_to_check,))
+    # result = cur.fetchone()
+    # if result is None:
+    #     return None
+    # return result[0]
 
 """
 Trains a K-nearest neighbors model on the dataset and returns the trained model.
