@@ -89,8 +89,8 @@ def insert_data(cur, conn, data, client):
     # Prepares the first part of the query that declares the columns for which values are being added
     # ON CONFLICT portion ensures duplicates aren't being added in
     insert_query = sql.SQL("""
-    INSERT INTO {} (page, incidentType, datePosted, dateReported, dateOfIncident, location, otherIncidentType, incidentDetails, description, detailsembed, locdetailsembed, locdescrembed)
-    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
+    INSERT INTO {} (page, incidentType, datePosted, dateReported, dateOfIncident, location, otherIncidentType, incidentDetails, description, detailsembed, locdetailsembed, locdescrembed, locationembed, descrembed)
+    VALUES (%s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s, %s)
     ON CONFLICT (page) DO NOTHING
     """).format(sql.Identifier(TABLE_NAME))
 
@@ -122,6 +122,8 @@ def insert_data(cur, conn, data, client):
         details_embedding = get_embedding(client, incident_details, dims=256)
         locdetails_embedding = get_embedding(client, locdetails_string)
         locdescr_embedding = get_embedding(client, locdescr_string)
+        descr_embedding = get_embedding(client, description, dims=256)
+        location_embedding = get_embedding(client, str(item['location']), dims=128)
 
         # Executing the query and passing in the values to add to the table
         cur.execute(insert_query, (
@@ -136,10 +138,11 @@ def insert_data(cur, conn, data, client):
             description,
             details_embedding,
             locdetails_embedding,
-            locdescr_embedding
+            locdescr_embedding,
+            location_embedding,
+            descr_embedding,
         ))
-
-        break
+        # break
 
     # Committing changes
     conn.commit()
@@ -173,6 +176,7 @@ headers = {
 
 print("Scraping page 1...")
 
+# The number at the end of the URI indicates the page
 url = "https://www.torontomu.ca/community-safety-security/security-incidents/list-of-security-incidents/jcr:content/content/restwocoltwoone/c1/ressecuritystack.data.1.json"
 
 # Getting the response and storing it
