@@ -24,11 +24,24 @@ from postgres_params import user, password, host, port, dbname
 
 TABLE_NAME = "incidents"
 
+SEASON_DICT = {1: 'Winter',
+               2: 'Winter',
+               3: 'Spring', 
+               4: 'Spring',
+               5: 'Spring',
+               6: 'Summer',
+               7: 'Summer',
+               8: 'Summer',
+               9: 'Fall',
+               10: 'Fall',
+               11: 'Fall',
+               12: 'Winter'}
+
 TRAIN_RATIO = 0.7
 VAL_RATIO = 0.15
 
 # X tensor needs to be of shape (batch_size, seq_len, num_features)
-# Y tensor needs to be of shape (batch_size, seq_len, 1)
+# Y tensor needs to be of shape (batch_size, timesteps)   --- ex. for one step forecasting, timesteps = 1. For multi-step forecasting, timesteps = seq_len
 BATCH_SIZE = 6
 SEQUENCE_LENGTH = 5
 
@@ -59,7 +72,8 @@ class IncidentDataset(torch.utils.data.Dataset):
     
     def __getitem__(self, idx):
         X = self.features[idx:idx + self.sequence_length]
-        y = self.target[idx + self.sequence_length : idx + self.sequence_length + self.prediction_length]
+        # y = self.target[idx + self.sequence_length : idx + self.sequence_length + self.prediction_length]
+        y = self.target[idx + 1 : idx + self.sequence_length + 1]
         return torch.FloatTensor(X), torch.FloatTensor(y)
     
     def get_monthly_incidents(self):
@@ -215,7 +229,15 @@ def process_dates(df):
     df['hour_sin'], df['hour_cos'] = cyclical_encode(df['dateofincident'].dt.hour, 24)
     df['day_of_month_sin'], df['day_of_month_cos'] = cyclical_encode(df['dateofincident'].dt.day, 31)
 
-    df = df.drop(columns=['dateposted', 'datereported'])
+    # Adding a flag to capture whether the incident occurred on a weekend or not
+    df['weekend'] = np.where(df['dateofincident'].dt.dayofweek > 4, 1, 0)
+
+    # Capturing the season when a particular incident took place
+    df['season'] = df['dateofincident'].dt.month.apply(lambda x: SEASON_DICT[x])
+    season_ohe = pd.get_dummies(df['season'], prefix="season")
+    df = pd.concat([df, season_ohe], axis=1)
+
+    df = df.drop(columns=['dateposted', 'datereported', 'season'], axis=1)
 
     return df, monthly_incidents
 
