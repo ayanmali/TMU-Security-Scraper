@@ -21,15 +21,20 @@ from sqlalchemy import create_engine
 import numpy as np
 import pandas as pd
 
+import torch 
+import joblib
 # Importing ML algorithms
 import sys
 sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers/TMU-ML/TMU-Security-Scraper')
 from search import get_search_results, LOCDETAILS_EMBED_COLUMN_NAME, LOCDESCR_EMBED_COLUMN_NAME
 from recommend_tfidf_algo import get_recommendations, load_and_transform_data, parse_incident_identifier, train_model, N_NEIGHBORS
+from locationclassifier import TYPE_MAP, Classifier
+from inference import make_prediction, NUM_FEATURES
 
 DEFAULT_TO_RETRIEVE = 5 # Default number of incidents to retrieve if a value isn't specified in the query parameters
 PER_PAGE = 20 # Number of incidents to be displayed on a given page on the website
 TABLE_NAME = "incidents"
+MODEL_PATH = "models/model_20241123_183614_10"
 
 client = OpenAI()
 engine = create_engine(f'postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}')
@@ -264,3 +269,27 @@ class RecommendIncidents(APIView):
 
         return Response({'count' : limit,
                          'results' : serializer.data})
+    
+class LocationPrediction(APIView):
+    authentication_classes = [TokenAuthentication]
+    permission_classes = [IsAuthenticated]
+
+    def get(self, request):
+        incident_type = request.query_params.get('type', None)
+        if incident_type is None or incident_type == "" or incident_type not in TYPE_MAP.keys():
+            return Response({'error' : "You must select a valid incident type."})
+        
+        model = Classifier(input_size=NUM_FEATURES)
+        # model.load_state_dict(torch.load("models/model_20241123_143841_4"))
+        # model.load_state_dict(torch.load("models/model_20241123_163146_8"))
+        model.load_state_dict(torch.load(MODEL_PATH))
+        model.eval()
+        # Use the model
+        model.eval()  # Set to evaluation mode
+        
+        # Uses the neural network to predict the location of an incident
+        predicted_quadrant = make_prediction(model, incident_type=incident_type)
+
+        return Response({'date' : datetime.now(),
+                         'incidenttype' : incident_type,
+                         'location' : predicted_quadrant})
