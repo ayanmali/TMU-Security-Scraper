@@ -1,6 +1,7 @@
-//import moment from 'moment';
-const API_BASE_URL = 'http://127.0.0.1:8000'; // Update this with your API URL
+import * as moment from 'moment';
+const API_BASE_URL = 'http://127.0.0.1:8000/app'; // Update this with your API URL
 const ITEMS_PER_PAGE = 20;
+const AUTH_TOKEN = "Token 3b2d5ac00aa108d2ab58e68f14886d28db859680";
 let currentPage = 1;
 let totalPages = 1;
 // interface SearchResponse {
@@ -87,9 +88,14 @@ function createIncidentCard(incident) {
 async function fetchAllIncidents() {
     showLoading();
     const offset = (currentPage - 1) * ITEMS_PER_PAGE;
-    const url = `${API_BASE_URL}/getincidents?offset=${offset}&limit=${ITEMS_PER_PAGE}`;
+    const headers = new Headers();
+    headers.append('Authorization', AUTH_TOKEN);
+    const url = `${API_BASE_URL}/getincidents/?offset=${offset}&limit=${ITEMS_PER_PAGE}`;
     try {
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: headers
+        });
         if (!response.ok)
             throw new Error('Failed to fetch incidents');
         const data = await response.json();
@@ -118,9 +124,14 @@ async function searchIncidents() {
         hideLoading();
         return;
     }
-    const url = `${API_BASE_URL}/search?query=${encodeURIComponent(queryElement.value)}${limitElement.value ? '&limit=' + limitElement.value : ''}`;
+    const url = `${API_BASE_URL}/search/?query=${encodeURIComponent(queryElement.value)}${limitElement.value ? '&limit=' + limitElement.value : ''}`;
+    const headers = new Headers();
+    headers.append('Authorization', AUTH_TOKEN);
     try {
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: headers
+        });
         if (!response.ok)
             throw new Error('Search failed');
         const data = await response.json();
@@ -148,8 +159,13 @@ async function getRecommendations() {
         return;
     }
     const url = `${API_BASE_URL}/recommend/${idElement.value}${limitElement.value ? '?limit=' + limitElement.value : ''}`;
+    const headers = new Headers();
+    headers.append('Authorization', AUTH_TOKEN);
     try {
-        const response = await fetch(url);
+        const response = await fetch(url, {
+            method: 'GET',
+            headers: headers
+        });
         if (!response.ok)
             throw new Error('Failed to get recommendations');
         const data = await response.json();

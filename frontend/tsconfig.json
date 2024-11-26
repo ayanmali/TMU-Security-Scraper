@@ -1,5 +1,7 @@
 {
   "compilerOptions": {
+    "outDir": "./dist/",
+    "noImplicitAny": true,
     "target": "es2020",
     "lib": ["dom", "ES2020"],
     "esModuleInterop": true,
