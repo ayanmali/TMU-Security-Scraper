@@ -1,3 +1,7 @@
+"""
+FastAPI implementation of the server side
+"""
+
 from typing import Annotated
 from fastapi import FastAPI, HTTPException, Path, Query
 from fastapi.middleware.cors import CORSMiddleware

@@ -279,16 +279,16 @@ def main():
         pickle.dump(knn, file)
 
     # The ID in the database of the incident to check
-    id_to_check = 69
+    # id_to_check = 69
 
-    # Gets a list of IDs of the recommended incidents
-    recommendations = get_recommendations(id_to_check, result_df, knn)
+    # # Gets a list of IDs of the recommended incidents
+    # recommendations = get_recommendations(id_to_check, result_df, knn)
 
-    if recommendations is not None:
-        print(f"Recommendations for incident with ID {id_to_check}:")
-        print(recommendations)
-    else:
-        print("No recommendations found")
+    # if recommendations is not None:
+    #     print(f"Recommendations for incident with ID {id_to_check}:")
+    #     print(recommendations)
+    # else:
+    #     print("No recommendations found")
 
 if __name__ == "__main__":
     main()

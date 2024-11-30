@@ -216,10 +216,15 @@ async function getRecommendations(): Promise<void> {
     }
 }
 
+async function showIncidentOverview(): Promise<void> {
+    const container = document.getElementById('incident-container');
+    
+}
+
 // Load recent incidents by default
 // fetchAllIncidents();
 
-// Add this at the bottom of your file
+// Event listener
 document.addEventListener('DOMContentLoaded', () => {
     // Set up event listeners
     document.querySelectorAll('.tab').forEach(tab => {

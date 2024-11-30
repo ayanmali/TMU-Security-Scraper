@@ -22,4 +22,3 @@ urlpatterns = [
     # Endpoint for providing a user with an auth token
     path('api-token-auth/', obtain_auth_token, name='api-token'),
 ]
-

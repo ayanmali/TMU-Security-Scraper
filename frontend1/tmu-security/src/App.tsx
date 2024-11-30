@@ -3,9 +3,11 @@ import { useState } from 'react';
 import moment from 'moment';
 import IncidentList from './components/IncidentList'
 import Navbar from './components/Navbar'
+import SearchResults from './components/SearchTab'
+import RecommendResults from './components/RecommendTab'
 import './App.css'
 
-const API_BASE_URL = 'http://127.0.0.1:8000/app';
+export const API_BASE_URL = 'http://127.0.0.1:8000/app';
 const ITEMS_PER_PAGE: number = 20;
 const AUTH_TOKEN: string = "Token a3030df88e83c018e5e9ab64dd27e6da63edac21"
 const HOST: string = "http://127.0.0.1:5500"
@@ -123,8 +125,8 @@ function App() {
         </div> */}
         <Navbar onTabChange={setCurrentTab} />
         {currentTab === "all" && <IncidentList />}
-        {currentTab === "search" && <div>Search Content</div>}
-        {currentTab === "recommend" && <div>Recommend Content</div>}
+        {currentTab === "search" && <SearchResults />}
+        {currentTab === "recommend" && <RecommendResults />}
     </div>
   );
 }
