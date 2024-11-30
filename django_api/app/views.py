@@ -249,7 +249,7 @@ class RecommendIncidents(APIView):
         if (date_ident is None or len(date_ident) < 10):
             return HttpResponseBadRequest('The date identifier must be a valid string in the format YYYY-MM-DD or YYYY-MM-DD-N')
             #return Response({'error' : 'The date identifier must be a valid string in the format YYYY-MM-DD or YYYY-MM-DD-N'},status=status.HTTP_400_BAD_RESPONSE)
-        is_valid, err = self.validate_date_param(date_ident)
+        is_valid, err = self.validate_date_ident(date_ident)
         if not is_valid:
             return HttpResponseBadRequest(err)
 
@@ -262,8 +262,10 @@ class RecommendIncidents(APIView):
         limit = input_val
 
         # Querying the DB to return recommended incidents
-        substring_to_check = parse_incident_identifier()
-        incident_id_to_check = Incident.objects.get(page__icontains=substring_to_check).values_list('id', flat=True)[0]
+
+        # Uses the incident date identifier provided by the user to return the substring from the page column to look for
+        substring_to_check = parse_incident_identifier(date_ident)
+        incident_id_to_check = Incident.objects.get(page__icontains=substring_to_check).id
 
         if incident_id_to_check is None:
             return HttpResponseBadRequest(f"No incidents found for the date {date_ident}.")

@@ -16,7 +16,6 @@ import pandas as pd
 # For the database connection
 from sqlalchemy import create_engine
 # import psycopg2
-from psycopg2 import sql
 # from pgvector.psycopg2 import register_vector
 import calendar
 
@@ -228,7 +227,7 @@ def get_recommendations(id, df, model, n_recommendations=5):
 
     return similar_incidents
 
-def parse_incident_identifier(identifier, cur, conn):
+def parse_incident_identifier(identifier):
     # Identifier format: YYYY-MM-DD or YYYY-MM-DD-N
     # where N-1 is the number of incidents previously in that day
     year = identifier[0:4]
@@ -237,12 +236,12 @@ def parse_incident_identifier(identifier, cur, conn):
     day = identifier[8:10]
 
     # Defining the substring to look for in the page column of the table
-    substring_to_check = f'%{year}/{month}/security-incident-{month_name}-{day}'
+    substring_to_check = f'{year}/{month}/security-incident-{month_name}-{day}'
 
     # Checking if there is an identifier at the end of the given parameter
     if len(identifier) > 10 and int(identifier[-1]) > 1:
         substring_to_check += identifier[-2:]
-    substring_to_check += '%'
+    # substring_to_check += '%'
 
     return substring_to_check
     # # SQL query to get the matching row

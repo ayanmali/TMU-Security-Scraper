@@ -1,7 +1,5 @@
 import React, { useState, useEffect, useRef } from 'react';
-import { createIncidentCard } from '../App';
-import { Incident } from '../App';
-import { API_BASE_URL } from '../App'  
+import { createIncidentCard, Incident, API_BASE_URL, ITEMS_PER_PAGE, AUTH_TOKEN, HOST } from '../App';
 
 const SearchResults: React.FC = () => {
     // State variable to track the "Search" button press
@@ -16,6 +14,9 @@ const SearchResults: React.FC = () => {
 
     // Ref to track the input fields
     const searchInputRef = useRef<HTMLInputElement>(null);
+    
+    // Ref to store the limit (i.e. the number of records to retrieve).
+    const limitRef = useRef<HTMLInputElement>(null);
 
     async function handleSearch() {
         // Obtaining the current value of the ref and using it as the search query string
@@ -23,13 +24,29 @@ const SearchResults: React.FC = () => {
         if (searchInputRef.current) {
             searchQuery = searchInputRef.current.value;
         }
+        // Obtaining the current value of the limit ref and using it as the limit query parameter 
+        let limit: string = '5';
+        if (limitRef.current) {
+            limit = limitRef.current.value;
+        }
 
         setError(null);
         setSearchResults([]);
         setIsLoading(true);
 
+        // Setting the request headers
+        const headers = new Headers( {
+            'Authorization': AUTH_TOKEN,
+            'Access-Control-Allow-Origin': HOST,
+            'Access-Control-Allow-Credentials': 'true'
+        } )
+
+        // Attempting the HTTP request
         try {
-            const response = await fetch(`${API_BASE_URL}/search/?query=${encodeURIComponent(searchQuery)}&limit=5`);
+            const response = await fetch(
+                `${API_BASE_URL}/search/?query=${encodeURIComponent(searchQuery)}&limit=${limit}`, {
+                method: 'GET', headers: headers
+            });
             if (!response.ok) throw new Error('Failed to fetch incidents');
             const data = await response.json();
             setSearchResults(data.results);
@@ -51,7 +68,7 @@ const SearchResults: React.FC = () => {
             {/* Contains the input fields for the search query and number of results to retrieve */}
             <div className="search-container">
                 <input ref={searchInputRef} type="text" id="search-query" placeholder="Enter a search query..."></input>
-                <input type="number" id="search-limit" placeholder="Number of results (default 5)" min="1"></input>
+                <input ref={limitRef} type="number" id="search-limit" placeholder="Number of results (default 5)" min="1"></input>
                 <button onClick={handleSearch} disabled={isLoading}>
                     {isLoading ? 'Searching...' : 'Search'}
                 </button>
@@ -72,11 +89,15 @@ const SearchResults: React.FC = () => {
             </div>
             )}
 
-            {showResults && (
-                <div id="incidents-container" className="incidents-container">
-                    Search stuff here
-                </div>
-            )}
+            {/* Displaying the cards for all of the retrieved incidents */}
+            {showResults &&
+                // Mapping each retrieved incident to a card
+                searchResults.map((incident) => (
+                    <div key={incident.id}>
+                        {createIncidentCard(incident)}
+                    </div>
+                ))
+            }
 
         </div>
     );

@@ -1,12 +1,6 @@
 import React, { useState, useEffect } from 'react';
-import { createIncidentCard } from '../App';
-import { Incident } from '../App';
+import { createIncidentCard, Incident, API_BASE_URL, ITEMS_PER_PAGE, AUTH_TOKEN, HOST } from '../App';
 import '../App.css'
-
-const ITEMS_PER_PAGE: number = 20;
-const API_BASE_URL: string = 'http://127.0.0.1:8000/app';
-const  AUTH_TOKEN: string = "Token a3030df88e83c018e5e9ab64dd27e6da63edac21"
-const HOST: string = 'http://localhost:3000';
 
 // Creating a function component to represent the list of incidents
 const IncidentList: React.FC = () => {

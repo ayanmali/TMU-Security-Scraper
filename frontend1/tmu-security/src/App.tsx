@@ -8,9 +8,10 @@ import RecommendResults from './components/RecommendTab'
 import './App.css'
 
 export const API_BASE_URL = 'http://127.0.0.1:8000/app';
-const ITEMS_PER_PAGE: number = 20;
-const AUTH_TOKEN: string = "Token a3030df88e83c018e5e9ab64dd27e6da63edac21"
-const HOST: string = "http://127.0.0.1:5500"
+export const ITEMS_PER_PAGE: number = 20;
+export const AUTH_TOKEN: string = "Token a3030df88e83c018e5e9ab64dd27e6da63edac21"
+export const HOST: string = "http://127.0.0.1:5500"
+
 const headers = new Headers();
 headers.append('Authorization', AUTH_TOKEN)
 headers.append('Access-Control-Allow-Origin', HOST);
