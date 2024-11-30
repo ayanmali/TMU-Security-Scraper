@@ -1,6 +1,8 @@
 import React from 'react';
+import { useState } from 'react';
 import moment from 'moment';
 import IncidentList from './components/IncidentList'
+import Navbar from './components/Navbar'
 import './App.css'
 
 const API_BASE_URL = 'http://127.0.0.1:8000/app';
@@ -71,8 +73,12 @@ export function createIncidentCard(incident: Incident) {
       <h3>{incident.incident_type || incident.incidenttype}</h3>
       <p><strong>Location: </strong>{incident.location}</p>
       <p><strong>Incident Date: </strong>{moment.utc(incident.date_of_incident || incident.dateofincident).format('MMMM D, YYYY')}</p>
+      <p><strong>Time of Occurrence: </strong>{moment.utc(incident.date_of_incident || incident.dateofincident).format('hh:mm A')}</p>
       <p><strong>Incident Description: </strong>{incident.incident_description || incident.incidentdetails}</p>
       <p><strong>Suspect Description: </strong>{incident.suspect_description || incident.description}</p>
+      {/* {incident.incident_description || incident.page && (
+        <p><strong>Details: {incident.incident_description?.includes('male') ? "Male" : "Female"}</strong></p>)} */}
+
       {incident.page_url || incident.page ? (
         <p><a href={incident.page_url || incident.page} target="_blank" rel="noopener noreferrer">View Details</a></p>
       ) : ('')}
@@ -104,12 +110,21 @@ export function createIncidentCard(incident: Incident) {
 //   }
 
 // }
-
 function App() {
+  const [currentTab, setCurrentTab] = useState('all');
+
   return (
     <div className="app">
         <h1>TMU Security Incidents Dashboard</h1>
-        <IncidentList />
+        {/* <div className="tabs">
+            <button className="tab active" data-tab="all">All Incidents</button>
+            <button className="tab" data-tab="search">Search</button>
+            <button className="tab" data-tab="recommendations">Recommendations</button>
+        </div> */}
+        <Navbar onTabChange={setCurrentTab} />
+        {currentTab === "all" && <IncidentList />}
+        {currentTab === "search" && <div>Search Content</div>}
+        {currentTab === "recommend" && <div>Recommend Content</div>}
     </div>
   );
 }

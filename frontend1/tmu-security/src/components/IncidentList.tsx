@@ -67,16 +67,6 @@ const IncidentList: React.FC = () => {
                 <div className="loading-spinner">Loading...</div>
             ) : (
                 <>
-                    {/* Incidents grid */}
-                    <div className="incidents-container">
-                        {/* Mapping each retrieved incident to a card */}
-                        {incidents.map((incident) => (
-                            <div key={incident.id}>
-                                {createIncidentCard(incident)}
-                            </div>
-                        ))}
-                    </div>
-
                     {/* Pagination controls */}
                     <div className="pagination">
                         {/* Previous page button */}
@@ -96,6 +86,17 @@ const IncidentList: React.FC = () => {
                                         Next
                         </button>
                     </div>
+
+                    {/* Incidents grid */}
+                    <div className="incidents-container">
+                        {/* Mapping each retrieved incident to a card */}
+                        {incidents.map((incident) => (
+                            <div key={incident.id}>
+                                {createIncidentCard(incident)}
+                            </div>
+                        ))}
+                    </div>
+
                 </>
             )}
         </div>
