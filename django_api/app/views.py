@@ -35,6 +35,12 @@ PER_PAGE = 20 # Number of incidents to be displayed on a given page on the websi
 TABLE_NAME = "incidents"
 MODEL_PATH = "c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers/TMU-ML/TMU-Security-Scraper/models/model_20241123_183614_10"
 
+# Defining a list of keywords that are likely to be included in a search query
+# if the user wanted to include suspect descriptions in their search
+# This will be used in the search endpoint to determine which types of vector embeddings to perform the search on, to provide a more precise search
+DESCR_KEYWORDS = ['tall', 'short', 'complexion', 'years', 'old', 'hair', 'wearing', 'hat', 'shoes', 'boots',
+                  'male', 'female', 'shirt', 'hoodie', 'jeans', 'sneakers', 'sweater', 'cm', 'inches']
+
 client = OpenAI()
 engine = create_engine(f'postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}')
 
@@ -203,8 +209,16 @@ class SearchIncidents(APIView):
             return input_val
         limit = input_val
 
+        # If the user's query contains one of these words, we'll search on the LOCDESCR_EMBED column.
+        # Otherwise, we'll search on the LOCDETAILS_EMBED column instead
+        vector_column = 1
+        for kw in DESCR_KEYWORDS:
+            if kw in query:
+                vector_column = 0
+                break
+
         # Retrieving the IDs of matching records from the DB
-        search_results = get_search_results(client,query,vector_column=0, df=df, n=limit)['id'].values
+        search_results = get_search_results(client,query,vector_column=vector_column, df=df, n=limit)['id'].values
 
         # Querying the Incident Model
         incidents = Incident.objects.filter(pk__in=search_results)
