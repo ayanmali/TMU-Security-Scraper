@@ -10,9 +10,14 @@
     "@types/node": "^16.18.120",
     "@types/react": "^18.3.12",
     "@types/react-dom": "^18.3.1",
+    "d3": "^7.9.0",
+    "dompurify": "^3.2.2",
+    "jsdom": "^25.0.1",
+    "mpld3": "^0.5.10",
     "react": "^18.3.1",
     "react-dom": "^18.3.1",
     "react-scripts": "5.0.1",
+    "tmu-security": "file:",
     "typescript": "^4.9.5",
     "web-vitals": "^2.1.4"
   },
@@ -39,5 +44,9 @@
       "last 1 firefox version",
       "last 1 safari version"
     ]
+  },
+  "devDependencies": {
+    "@types/d3": "^7.4.3",
+    "@types/jsdom": "^21.1.7"
   }
 }

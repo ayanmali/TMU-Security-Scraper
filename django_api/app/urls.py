@@ -19,6 +19,7 @@ urlpatterns = [
     path('search/', views.SearchIncidents.as_view(), name='search-incidents'),
     path('recommend/<str:date_ident>', views.RecommendIncidents.as_view(), name='recommend-incidents'),
     path('predict-location/', views.LocationPrediction.as_view(), name='predict-location'),
+    path('weekly-forecast/', views.WeeklyForecastChart.as_view(), name='weekly-forecast'),
     # Endpoint for providing a user with an auth token
     path('api-token-auth/', obtain_auth_token, name='api-token'),
 ]

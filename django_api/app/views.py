@@ -21,19 +21,23 @@ from sqlalchemy import create_engine
 import numpy as np
 import pandas as pd
 
+import pickle
+
 import torch 
 # Importing ML algorithms
 import sys
 sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers/TMU-ML/TMU-Security-Scraper')
 from search import get_search_results, LOCDETAILS_EMBED_COLUMN_NAME, LOCDESCR_EMBED_COLUMN_NAME
-from recommend_tfidf_algo import get_recommendations, load_and_transform_data, parse_incident_identifier, train_model, N_NEIGHBORS
-from locationclassifier import TYPE_MAP, Classifier
+from recommend_tfidf_algo import get_recommendations, load_and_transform_data, parse_incident_identifier
+from locationclassifier import TYPE_MAP, Classifier, process_dates
 from inference import make_prediction, NUM_FEATURES
+from sarima_weekly import forecast_incidents
 
 DEFAULT_TO_RETRIEVE = 5 # Default number of incidents to retrieve if a value isn't specified in the query parameters
 PER_PAGE = 20 # Number of incidents to be displayed on a given page on the website
 TABLE_NAME = "incidents"
 MODEL_PATH = "c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers/TMU-ML/TMU-Security-Scraper/models/model_20241123_183614_10"
+# WEEKLY_FORECAST_FILENAME = "sarima_weekly_forecast.html"
 
 # Defining a list of keywords that are likely to be included in a search query
 # if the user wanted to include suspect descriptions in their search
@@ -53,8 +57,14 @@ df[LOCDETAILS_EMBED_COLUMN_NAME] = df[LOCDETAILS_EMBED_COLUMN_NAME].apply(lambda
 
 # Creating the DataFrame to use for recommendations
 recommend_df, _ = load_and_transform_data(df)
-# Training the recommendation model
-knn = train_model(recommend_df, N_NEIGHBORS)
+# Loading the recommendation model
+# knn = train_model(recommend_df, N_NEIGHBORS)
+with open('tfidf_recommend_model.pkl', 'rb') as file:
+        knn = pickle.load(file)
+
+# Loading the SARIMA Weekly model
+with open('sarima_weekly.pkl', 'rb') as file:
+        sarima_weekly = pickle.load(file)
 
 # Loading the neural network to use for predictions
 model = Classifier(input_size=NUM_FEATURES)
@@ -211,10 +221,10 @@ class SearchIncidents(APIView):
 
         # If the user's query contains one of these words, we'll search on the LOCDESCR_EMBED column.
         # Otherwise, we'll search on the LOCDETAILS_EMBED column instead
-        vector_column = 1
+        vector_column = 0
         for kw in DESCR_KEYWORDS:
             if kw in query:
-                vector_column = 0
+                vector_column = 1
                 break
 
         # Retrieving the IDs of matching records from the DB
@@ -315,3 +325,32 @@ class LocationPrediction(APIView):
         return Response({'date' : datetime.now(),
                          'incidenttype' : incident_type,
                          'location' : predicted_quadrant})
+
+"""
+Defines an endpoint for the HTML of the weekly incident count forecast visualization.
+"""
+class WeeklyForecastChart(APIView):
+    def get(self, request):
+        _, _, daily_incidents = process_dates(df)
+        # Obtaining the total number of incidents that occurred each week
+        weekly_incident_counts = daily_incidents.resample('W').sum()
+        weeks = weekly_incident_counts.index
+
+        # Generate forecast data using the model
+        forecast_series, conf_int = forecast_incidents(weekly_incident_counts, sarima_weekly)
+
+        # Visualization will be handled on the frontend
+        return Response({
+            'index' : weeks,
+            'weekly_incident_counts' : weekly_incident_counts,
+            'forecast_series' : forecast_series,
+            'conf_int' : conf_int
+        })
+        # try:
+        #     with open(WEEKLY_FORECAST_FILENAME, 'r') as f:
+        #         html_string = f.read()
+
+        #     return HttpResponse(html_string, content_type="text/html")
+        
+        # except FileNotFoundError as e:
+        #     return HttpResponseBadRequest(e)

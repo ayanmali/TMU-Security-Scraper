@@ -5,7 +5,10 @@ import IncidentList from './components/IncidentList'
 import Navbar from './components/Navbar'
 import SearchResults from './components/SearchTab'
 import RecommendResults from './components/RecommendTab'
+// import Analytics from './components/Analytics'
+import TimeSeriesForecastChart from './components/Forecast'
 import './App.css'
+// import IncidentForecastVisualization from './components/Visuals';
 
 export const API_BASE_URL = 'http://127.0.0.1:8000/app';
 export const ITEMS_PER_PAGE: number = 20;
@@ -38,10 +41,10 @@ export interface Incident {
   page?: string;
 }
 
-interface APIResponse {
-  total: number;
-  incidents: Incident[];
-}
+// interface APIResponse {
+//   total: number;
+//   incidents: Incident[];
+// }
 
 // import logo from './logo.svg';
 // import './App.css';
@@ -128,6 +131,7 @@ function App() {
         {currentTab === "all" && <IncidentList />}
         {currentTab === "search" && <SearchResults />}
         {currentTab === "recommend" && <RecommendResults />}
+        {currentTab === "analytics" && <TimeSeriesForecastChart />}
     </div>
   );
 }

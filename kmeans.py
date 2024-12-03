@@ -1,7 +1,3 @@
-"""
-For better clusters use kmeans.py instead of this file
-"""
-
 import numpy as np
 
 # For converting text features into vectors

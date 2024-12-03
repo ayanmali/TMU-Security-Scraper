@@ -274,7 +274,7 @@ def main():
     knn = train_model(result_df, N_NEIGHBORS)
 
     # Saving the model
-    with open('tfidf_recommend_model.pkl', 'wb') as file:
+    with open('django_api/tfidf_recommend_model.pkl', 'wb') as file:
         pickle.dump(knn, file)
 
     # The ID in the database of the incident to check

@@ -5,7 +5,7 @@ const SearchResults: React.FC = () => {
     // State variable to track the "Search" button press
     const [ showResults, setShowResults ] = useState(false);
 
-    // State to track the search results to display
+    // State to track the search results (i.e. the actual data) to display
     const [searchResults, setSearchResults] = useState<Incident[]>([]);
 
     // Managing loading and error states
