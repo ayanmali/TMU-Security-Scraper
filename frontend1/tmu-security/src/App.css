@@ -244,3 +244,19 @@ button:disabled {
   visibility: visible;
   opacity: 1;
 }
+
+.incident-forecast {
+  display: flex;
+  flex-direction: column;
+  display: flex;
+  justify-content: center;
+  align-items: center;
+}
+
+.incident-forecast h2 {
+  display: flex;
+  justify-content: center;
+  font-size: 1.25rem;
+  font-weight: bold;
+  margin-bottom: 2rem;
+}

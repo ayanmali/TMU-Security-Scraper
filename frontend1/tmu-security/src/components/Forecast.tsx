@@ -2,8 +2,9 @@
 Component to define the Analytics tab.
 */
 
-import React, { useEffect, useRef } from 'react';
+import React, { useEffect, useRef, useState } from 'react';
 import * as d3 from 'd3';
+import { API_BASE_URL, AUTH_TOKEN, HOST } from '../App';
 
 // import { createIncidentCard, Incident, API_BASE_URL, ITEMS_PER_PAGE, AUTH_TOKEN, HOST } from '../App';
 import '../App.css'
@@ -21,53 +22,96 @@ interface PlotData {
     type: 'actual' | 'forecast';
 }
 
-const sampleData = {
-    index: [
-      "2018-07-01T00:00:00Z",
-      "2018-07-08T00:00:00Z",
-      "2018-07-15T00:00:00Z",
-      "2018-07-22T00:00:00Z",
-      "2018-07-29T00:00:00Z",
-      "2018-08-05T00:00:00Z",
-      "2018-08-12T00:00:00Z"
-    ],
-    weekly_incident_counts: [1, 1, 3, 4, 2, 5, 3],
-    forecast_series: [4, 2, 3, 4, 5, 6, 7]
-};
+// const sampleData = {
+//     index: [
+//       "2018-07-01T00:00:00Z",
+//       "2018-07-08T00:00:00Z",
+//       "2018-07-15T00:00:00Z",
+//       "2018-07-22T00:00:00Z",
+//       "2018-07-29T00:00:00Z",
+//       "2018-08-05T00:00:00Z",
+//       "2018-08-12T00:00:00Z"
+//     ],
+//     weekly_incident_counts: [1, 1, 3, 4, 2, 5, 3],
+//     forecast_series: [4, 2, 3, 4, 5, 6, 7]
+// };
 
-const TimeSeriesForecastChart: React.FC<{data?: TimeSeriesData}> = ({
-    data = sampleData 
-  }) => {
+const TimeSeriesForecastChart: React.FC = () => {
     const svgRef = useRef(null);
+    const [ countData, setCountData ] = useState<TimeSeriesData>(
+        {
+            index: [],
+            weekly_incident_counts: [],
+            forecast_series: []
+        }
+    );
+    const [isLoading, setIsLoading] = useState(false);
+    const [error, setError] = useState<string | null>(null);
+
+    async function getWeeklyData() {
+        setIsLoading(true);
+        setError(null);
+
+        // Setting the headers for the HTTP request
+        const headers = new Headers( {
+            'Authorization': AUTH_TOKEN,
+            'Access-Control-Allow-Origin': HOST,
+            'Access-Control-Allow-Credentials': 'true'
+        } )
+        
+        try {
+            const response = await fetch(
+                `${API_BASE_URL}/weekly-forecast/`, {
+                    method: 'GET', headers: headers
+                }
+            )
+            
+            if (!response.ok) { throw new Error('An error occurred when retrieving the forecast data.') }
+            const data = await response.json();
+            setCountData(
+                {
+                    index: data.index,
+                    weekly_incident_counts: data.weekly_incident_counts,
+                    forecast_series: data.forecast_series
+                }
+            );
+        } catch(err) {
+            setError(err instanceof Error ? err.message : 'An error occurred when sending the request.');
+            console.error(err);
+        } finally {
+            setIsLoading(false);
+        }
+    }
   
     useEffect(() => {
-      if (!svgRef.current) return;
+      getWeeklyData()
+      // Adding a guard clause to stop the code from running if the data is empty
+      if (!svgRef.current || countData.index.length === 0) return;
   
       // Clear any existing SVG content
       d3.select(svgRef.current).selectAll("*").remove();
   
       // Defines the function for parsing dates and combine actual and forecast data
       const parseDate = d3.timeParse("%Y-%m-%dT%H:%M:%SZ");
-            
-      const actualData: PlotData[] = data.index.map((date, i) => {
+      
+      const actualData: PlotData[] = countData.index.map((date, i) => {
         const parsedDate = parseDate(date);
         if (!parsedDate) { throw new Error(`Unable to parse date: ${date}`) }
         
         return {
             date: parsedDate,
-            value: data.weekly_incident_counts[i],
+            value: countData.weekly_incident_counts[i],
             type: 'actual'
         };
     });
       
-  
       const lastActualDate = actualData[actualData.length - 1].date;
       // Checking to ensure the final date in the array is not null
       if (lastActualDate == null) {
         throw Error('The final date in the index is null.');
       }
 
-      const forecastData: PlotData[] = data.forecast_series.map((value, i) => ({
+      const forecastData: PlotData[] = countData.forecast_series.map((value, i) => ({
         date: new Date(lastActualDate.getTime() + (i + 1) * 7 * 24 * 60 * 60 * 1000), // Add weeks
         value: value,
         type: 'forecast'
@@ -143,7 +187,8 @@ const TimeSeriesForecastChart: React.FC<{data?: TimeSeriesData}> = ({
   
       // Legend
       const legend = svg.append("g")
-        .attr("transform", `translate(${width - 100},20)`);
+      // Adjusting the position of the box
+        .attr("transform", `translate(${width - 150},0)`);
   
       legend.append("rect")
         .attr("width", 150)
@@ -180,10 +225,11 @@ const TimeSeriesForecastChart: React.FC<{data?: TimeSeriesData}> = ({
         .attr("alignment-baseline", "middle")
         .text("Forecast");
   
-    }, [data]);
+    }, [countData]);
   
     return (
-      <div className="w-full max-w-4xl mx-auto">
+      <div className="incident-forecast">
+        <h2>Count of TMU Campus Security Incidents per Week + Forecast</h2>
         <svg ref={svgRef}></svg>
       </div>
     );
