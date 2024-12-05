@@ -1,5 +1,5 @@
 from django.shortcuts import get_object_or_404#, render
-from django.http import HttpResponse, JsonResponse, HttpResponseBadRequest 
+from django.http import JsonResponse, HttpResponseBadRequest 
 from rest_framework import status
 from rest_framework.response import Response
 from rest_framework.views import APIView
@@ -25,8 +25,8 @@ import pickle
 
 import torch 
 # Importing ML algorithms
-import sys
-sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers/TMU-ML/TMU-Security-Scraper')
+# import sys
+# sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers/TMU-ML/TMU-Security-Scraper')
 from search import get_search_results, LOCDETAILS_EMBED_COLUMN_NAME, LOCDESCR_EMBED_COLUMN_NAME
 from recommend_tfidf_algo import get_recommendations, load_and_transform_data, parse_incident_identifier
 from locationclassifier import TYPE_MAP, Classifier, process_dates
@@ -343,8 +343,8 @@ class WeeklyForecastChart(APIView):
         return Response({
             'index' : weeks,
             'weekly_incident_counts' : weekly_incident_counts,
-            'forecast_series' : forecast_series,
-            'conf_int' : conf_int
+            'forecast_series' : forecast_series
+            # 'conf_int' : conf_int
         })
         # try:
         #     with open(WEEKLY_FORECAST_FILENAME, 'r') as f:
