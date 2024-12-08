@@ -17,7 +17,7 @@ from openai import OpenAI
 # Database credentials
 # import sys
 # sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers')
-from postgres_params import db_params, user, password, host, port, dbname
+from .postgres_params import DB_PARAMS, USER, PASSWORD, HOST, PORT, DBNAME
 
 import numpy as np
 from numpy.linalg import norm
@@ -142,7 +142,7 @@ def get_cos_similarity(first, second):
 Creates the cursor and connection objects for interacting with the database.
 """
 def setup_db():
-    conn = psycopg2.connect(**db_params)
+    conn = psycopg2.connect(**DB_PARAMS)
     cur = conn.cursor()
     # cur.execute('CREATE EXTENSION IF NOT EXISTS vector')
     return conn, cur
@@ -150,7 +150,7 @@ def setup_db():
 # For testing out the search functionality
 def main():
     # Setting up the database connection
-    engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{dbname}')
+    engine = create_engine(f'postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}')
 
     # Setting up the database connection
     conn, cur = setup_db()

@@ -27,16 +27,20 @@ import torch
 # Importing ML algorithms
 # import sys
 # sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers/TMU-ML/TMU-Security-Scraper')
-from search import get_search_results, LOCDETAILS_EMBED_COLUMN_NAME, LOCDESCR_EMBED_COLUMN_NAME
-from recommend_tfidf_algo import get_recommendations, load_and_transform_data, parse_incident_identifier
-from locationclassifier import TYPE_MAP, Classifier, process_dates
-from inference import make_prediction, NUM_FEATURES
-from sarima_weekly import forecast_incidents
+from .search import get_search_results, LOCDETAILS_EMBED_COLUMN_NAME, LOCDESCR_EMBED_COLUMN_NAME
+from .recommend_tfidf_algo import get_recommendations, load_and_transform_data, parse_incident_identifier
+from .locationclassifier import TYPE_MAP, Classifier, process_dates
+from .inference import make_prediction, NUM_FEATURES
+from .sarima_weekly import forecast_incidents
+
+from dotenv import load_dotenv
+
+load_dotenv()
 
 DEFAULT_TO_RETRIEVE = 5 # Default number of incidents to retrieve if a value isn't specified in the query parameters
 PER_PAGE = 20 # Number of incidents to be displayed on a given page on the website
 TABLE_NAME = "incidents"
-MODEL_PATH = "c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers/TMU-ML/TMU-Security-Scraper/models/model_20241123_183614_10"
+MODEL_PATH = "torch-models/model_20241123_183614_10"
 # WEEKLY_FORECAST_FILENAME = "sarima_weekly_forecast.html"
 
 # Defining a list of keywords that are likely to be included in a search query
@@ -289,6 +293,7 @@ class RecommendIncidents(APIView):
 
         # Uses the incident date identifier provided by the user to return the substring from the page column to look for
         substring_to_check = parse_incident_identifier(date_ident)
+        print(f"SUBSTRING TO CHECK IS: {substring_to_check}")
         incident_id_to_check = Incident.objects.get(page__icontains=substring_to_check).id
 
         if incident_id_to_check is None:

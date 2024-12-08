@@ -1,0 +1,66 @@
+# version: '3.8'
+
+services:
+  frontend:
+    build: 
+      context: ./frontend1/tmu-security
+      dockerfile: Dockerfile
+    ports:
+      - "3001:3000"
+    volumes:
+      - ./frontend1/tmu-security:/app
+    depends_on:
+      - backend
+    #networks:
+    #  - app-network
+
+  backend:
+    build:
+      context: ./django_api
+      dockerfile: Dockerfile
+
+    # environment:
+      #- DEBUG=0
+      #- SECRET_KEY=your_secret_key
+      # - DATABASE_URL=postgres://user:password@db:5432/dbname
+      # - POSTGRES_PASSWORD =postgres 
+      # - POSTGRES_DB= postgres 
+      # - POSTGRES_USER = postgres
+
+    ports:
+    - "8000:8000"
+
+    volumes:
+    - ./django_api:/api
+
+    env_file:
+      - django_api/.env
+
+    depends_on:
+      - db
+
+    # command: "python manage.py runserver 0.0.0.0:8000"
+
+    #networks:
+    #  - app-network
+
+  db:
+    image: pgvector/pgvector:pg16
+    ports:
+    - '5431:5432'
+    volumes:
+      - ./postgres_data:/var/lib/postgresql/data
+    environment:
+      - POSTGRES_DB=tmusecurity
+      - POSTGRES_USER=postgres
+      - POSTGRES_PASSWORD=postgres
+    #networks:
+    #  - app-network
+
+volumes:
+  postgres_data:
+#   static_volume:
+
+# networks:
+#   app-network:
+#     driver: bridge

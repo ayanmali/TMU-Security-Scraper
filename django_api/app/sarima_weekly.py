@@ -2,11 +2,11 @@
 Generates a forecast of the total number of incidents over time.
 """
 
-from locationclassifier import process_dates
+from .locationclassifier import process_dates
 from sqlalchemy import create_engine
 #import sys
 #sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers')
-from postgres_params import user, password, host, port, dbname
+from .postgres_params import USER, PASSWORD, HOST, PORT, DBNAME
 import pandas as pd
 from matplotlib import pyplot as plt
 import mpld3
@@ -200,7 +200,7 @@ def save_html(html, filename="sarima_weekly_forecast.html"):
 
 def main():
         print("Loading the data...")
-        engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{dbname}')
+        engine = create_engine(f'postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}')
         df = pd.read_sql(f"SELECT * FROM {TABLE_NAME}", engine)
 
         _, _, daily_incidents = process_dates(df)

@@ -11,9 +11,13 @@ https://docs.djangoproject.com/en/5.1/ref/settings/
 """
 
 from pathlib import Path
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 from .postgres_params import USER, PASSWORD, DBNAME, HOST, PORT
-from .secret import SECRET
+# from .secret import SECRET
 
 # Build paths inside the project like this: BASE_DIR / 'subdir'.
 BASE_DIR = Path(__file__).resolve().parent.parent
@@ -23,13 +27,12 @@ BASE_DIR = Path(__file__).resolve().parent.parent
 # See https://docs.djangoproject.com/en/5.1/howto/deployment/checklist/
 
 # SECURITY WARNING: keep the secret key used in production secret!
-SECRET_KEY = SECRET
+SECRET_KEY = os.environ.get("SECRET_KEY")
 
 # SECURITY WARNING: don't run with debug turned on in production!
-DEBUG = True
+DEBUG = bool(os.environ.get("DEBUG", default=0))
 
-ALLOWED_HOSTS = []
-
+ALLOWED_HOSTS = os.environ.get("DJANGO_ALLOWED_HOSTS").split(" ")
 
 # Application definition
 
@@ -99,6 +102,7 @@ CORS_ALLOW_HEADERS = [
 CORS_ALLOW_CREDENTIALS = True
 CORS_ALLOWED_ORIGINS = [
     'http://localhost:3000',
+    'http://localhost:3001'
     ]
 
 ROOT_URLCONF = 'tmu_security_site.urls'
@@ -126,16 +130,17 @@ WSGI_APPLICATION = 'tmu_security_site.wsgi.application'
 # https://docs.djangoproject.com/en/5.1/ref/settings/#databases
 
 DATABASES = {
-    'default': {
-        'ENGINE': 'django.db.backends.postgresql',
-        'NAME': DBNAME,
-        'USER': USER,
-        'PASSWORD' : PASSWORD,
-        'HOST': HOST,
-        'PORT' : PORT
+    "default": {
+        "ENGINE": os.environ.get("SQL_ENGINE", "django.db.backends.sqlite3"),
+        "NAME": os.environ.get("SQL_DATABASE", DBNAME),
+        "USER": os.environ.get("SQL_USER", USER),
+        "PASSWORD": os.environ.get("SQL_PASSWORD", PASSWORD),
+        "HOST": os.environ.get("SQL_HOST", HOST),
+        "PORT": os.environ.get("SQL_PORT", PORT),
     }
 }
 
+print(f"Connection Details: {DATABASES}")
 
 # Password validation
 # https://docs.djangoproject.com/en/5.1/ref/settings/#auth-password-validators

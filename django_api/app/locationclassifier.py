@@ -14,12 +14,12 @@ import joblib
 
 # from sklearn.metrics import f1_score, classification_report
 
-from recommend_tfidf_algo import replace_other_incident_type, format_landmarks, format_street_names
-from streets import primary, secondary
+from .recommend_tfidf_algo import replace_other_incident_type, format_landmarks, format_street_names
+from .streets import primary, secondary
 
-import sys
-sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers')
-from postgres_params import user, password, host, port, dbname
+# import sys
+# sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers')
+from .postgres_params import USER, PASSWORD, HOST, PORT, DBNAME
 
 TABLE_NAME = "incidents"
 
@@ -85,7 +85,7 @@ Creates the dataloader and model objects to use for training.
 def prepare_data(batch_size=BATCH_SIZE):
     # Loading the data
     print("Loading the data...")
-    engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{dbname}')
+    engine = create_engine(f'postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}')
     df = pd.read_sql(f"SELECT * FROM {TABLE_NAME}", engine)
 
     df, _, _ = load_and_transform_data(df)

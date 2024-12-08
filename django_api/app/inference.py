@@ -3,11 +3,14 @@ import torch
 import pandas as pd
 import joblib
 from datetime import datetime
-from locationclassifier import Classifier, BIAS, TYPE_MAP, SEASON_DICT, cyclical_encode
+import os 
+from .locationclassifier import Classifier, BIAS, TYPE_MAP, SEASON_DICT, cyclical_encode
 
 NUM_FEATURES = 14
 
-scaler = joblib.load("C:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers/TMU-ML/TMU-Security-Scraper/scaler.gz")
+dir_path = os.path.dirname(os.path.realpath(__file__))
+print(f"Working directory: {dir_path}")
+scaler = joblib.load("scaler.gz")
 
 """
 Passes in data to the neural net to obtain a prediction.

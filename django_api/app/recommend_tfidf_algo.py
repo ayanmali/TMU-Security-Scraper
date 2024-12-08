@@ -22,10 +22,10 @@ import calendar
 # Database credentials
 # import sys
 # sys.path.insert(1, 'c:/Users/ayan_/Desktop/Desktop/Coding/Cursor Workspace/Scrapers')
-from postgres_params import user, password, host, port, dbname #, db_params
+from .postgres_params import USER, PASSWORD, HOST, PORT, DBNAME #, db_params
 
-from streets import secondary, landmarks
-from details_keywords import primary_keywords, secondary_keywords
+from .streets import secondary, landmarks
+from .details_keywords import primary_keywords, secondary_keywords
 
 TABLE_NAME = "incidents"
 N_NEIGHBORS = 5
@@ -227,7 +227,7 @@ def get_recommendations(id, df, model, n_recommendations=5):
 
     return similar_incidents
 
-def parse_incident_identifier(identifier):
+def parse_incident_identifier(identifier: str):
     # Identifier format: YYYY-MM-DD or YYYY-MM-DD-N
     # where N-1 is the number of incidents previously in that day
     year = identifier[0:4]
@@ -235,6 +235,15 @@ def parse_incident_identifier(identifier):
     month_name = list(calendar.month_name)[int(month)].lower()
     day = identifier[8:10]
 
+    day_int = 0
+    try:
+        year_int = int(year)
+        month_int = int(month)
+        day_int = int(day)
+    except ValueError:
+        raise ValueError('The year, month, and days must be valid integers.')
+    
+    day = str(day_int)
     # Defining the substring to look for in the page column of the table
     substring_to_check = f'{year}/{month}/security-incident-{month_name}-{day}'
 
@@ -264,7 +273,7 @@ def train_model(df, n_neighbors):
 
 def main():
     # Setting up the database connection
-    engine = create_engine(f'postgresql://{user}:{password}@{host}:{port}/{dbname}')
+    engine = create_engine(f'postgresql://{USER}:{PASSWORD}@{HOST}:{PORT}/{DBNAME}')
 
     df = pd.read_sql(f"SELECT * FROM {TABLE_NAME} ORDER BY id", engine)
     # Preprocessing the data

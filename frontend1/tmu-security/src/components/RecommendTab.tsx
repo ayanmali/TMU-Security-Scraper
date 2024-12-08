@@ -55,7 +55,7 @@ const RecommendResults: React.FC = () => {
             setShowResults(true);
         } catch (err) {
             // Handling and logging any errors that occur while fetching
-            setError('An error occurred when searching. Ensure the search query contains at least four characters.');
+            setError('An error occurred when getting recommendations. Ensure that the year, month, and days specified are valid integers.');
             console.error(err);
         } finally {
             // Adjusting states after the response has been received
