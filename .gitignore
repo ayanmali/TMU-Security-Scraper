@@ -3,8 +3,8 @@ django_api/tmu_security_site/postgres_params.py
 django_api/app/postgres_params.py
 django_api/tmu_security_site/secret.py
 runs
-#scaler.gz
-#torch-models
+scaler.gz
+torch-models
 .env
 data/db
-#postgres_data
+postgres_data
