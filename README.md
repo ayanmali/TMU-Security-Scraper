@@ -1,14 +1,8 @@
 # TMU-Security-Incidents
 Applying machine learning to TMU security incident data to help improve campus security.
 
-## How to Run Locally
-After cloning this repo to your machine, run the following commands on your command line/terminal:
-
-1. Clone the repo to your machine
-2. Build the Docker image and run the container:
-    `docker-compose build`
-   `docker-compose up`
-3. After the container has started, navigate to `localhost:3001`
+## View the App
+[View the app here](http://tmusecurity.ca)
 
 ## Part 1. Scraping
 
