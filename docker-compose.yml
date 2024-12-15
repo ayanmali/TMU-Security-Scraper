@@ -6,7 +6,7 @@ services:
       context: ./frontend1/tmu-security
       dockerfile: Dockerfile
     ports:
-      - "3001:3000"
+      - "5000:5000"
     volumes:
       - ./frontend1/tmu-security:/app
     depends_on:

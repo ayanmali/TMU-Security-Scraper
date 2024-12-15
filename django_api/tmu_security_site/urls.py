@@ -1,5 +1,9 @@
 from django.contrib import admin
 from django.urls import include, path
+import os
+from dotenv import load_dotenv
+
+load_dotenv()
 
 """
 URL configuration for tmu_security_site project.
@@ -19,6 +23,6 @@ Including another URLconf
 """
 
 urlpatterns = [
-    path("app/", include("app.urls")),
+    path(os.environ.get("API_BASE_URL"), include("app.urls")),
     path('admin/', admin.site.urls),
 ]

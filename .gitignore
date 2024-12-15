@@ -1,14 +1,21 @@
+# **This needs to be installed manually**
 frontend/node_modules/
 # django_api/tmu_security_site/postgres_params.py
 # django_api/app/postgres_params.py
 
-# This needs to be added in manually
+# this isnt being used anymore
 django_api/tmu_security_site/secret.py
+# doesnt need to be pushed to git
 runs
 # scaler.gz
 # torch-models
 
-# This needs to be added in manually
+# **This needs to be added in manually**
 .env
+# this isnt being used anymore
 data/db
 # postgres_data
+
+# **Dont need to push these to Git anymore since it already exists on the vps**
+Dockerfile
+docker-compose.yml
