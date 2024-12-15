@@ -52,6 +52,10 @@ const TimeSeriesForecastChart: React.FC = () => {
         setIsLoading(true);
         setError(null);
 
+        // Error handling
+        if(!API_BASE_URL) throw new Error("API_BASE_URL is undefined");
+        if(!AUTH_TOKEN) throw new Error("AUTH_TOKEN is undefined");
+        if(!HOST) throw new Error("HOST is undefined");
         // Setting the headers for the HTTP request
         const headers = new Headers( {
             'Authorization': AUTH_TOKEN,

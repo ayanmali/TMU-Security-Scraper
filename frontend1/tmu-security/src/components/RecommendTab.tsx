@@ -35,7 +35,11 @@ const RecommendResults: React.FC = () => {
         setError(null);
         setSearchResults([]);
         setIsLoading(true);
-
+        
+        // Error handling
+        if(!API_BASE_URL) throw new Error("API_BASE_URL is undefined");
+        if(!AUTH_TOKEN) throw new Error("AUTH_TOKEN is undefined");
+        if(!HOST) throw new Error("HOST is undefined");
         // Setting the request headers
         const headers = new Headers( {
             'Authorization': AUTH_TOKEN,

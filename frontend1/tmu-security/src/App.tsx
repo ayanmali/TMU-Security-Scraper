@@ -10,10 +10,15 @@ import TimeSeriesForecastChart from './components/Forecast'
 import './App.css'
 // import IncidentForecastVisualization from './components/Visuals';
 
-export const API_BASE_URL = 'http://127.0.0.1:8000/app';
+export const API_BASE_URL = process.env.REACT_APP_API_BASE_URL
 export const ITEMS_PER_PAGE: number = 20;
-export const AUTH_TOKEN: string = "Token a3030df88e83c018e5e9ab64dd27e6da63edac21"
-export const HOST: string = "http://127.0.0.1:5500"
+export const AUTH_TOKEN = process.env.REACT_APP_AUTH_TOKEN;
+export const HOST = process.env.REACT_APP_HOST;
+
+// Error handling
+if(!API_BASE_URL) throw new Error("API_BASE_URL is undefined");
+if(!AUTH_TOKEN) throw new Error("AUTH_TOKEN is undefined");
+if(!HOST) throw new Error("HOST is undefined");
 
 const headers = new Headers();
 headers.append('Authorization', AUTH_TOKEN)
@@ -121,12 +126,18 @@ function App() {
 
   return (
     <div className="app">
+      <div className="top-screen">
         <h1>TMU Security Incidents Dashboard</h1>
         {/* <div className="tabs">
             <button className="tab active" data-tab="all">All Incidents</button>
             <button className="tab" data-tab="search">Search</button>
             <button className="tab" data-tab="recommendations">Recommendations</button>
         </div> */}
+        {/* <img>https://cdn-icons-png.flaticon.com/512/25/25231.png</img> */}
+        
+        <a href='https://www.github.com/ayanmali'><img className='github-icon' src='https://cdn-icons-png.flaticon.com/512/25/25231.png'
+        width='40' height='40'></img></a>
+      </div>
         <Navbar onTabChange={setCurrentTab} />
         {currentTab === "all" && <IncidentList />}
         {currentTab === "search" && <SearchResults />}
